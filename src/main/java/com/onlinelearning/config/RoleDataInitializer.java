@@ -1,0 +1,3 @@
+package com.onlinelearning.config;
+import com.onlinelearning.entity.Role; import com.onlinelearning.entity.RoleName; import com.onlinelearning.repository.RoleRepository; import org.springframework.boot.CommandLineRunner; import org.springframework.context.annotation.Bean; import org.springframework.context.annotation.Configuration;
+@Configuration public class RoleDataInitializer { @Bean CommandLineRunner roles(RoleRepository repository){return args->{for(RoleName roleName:RoleName.values()){String code=roleName.name().replace("ROLE_", "");if(repository.findByCode(code).isEmpty()){Role role=new Role();role.setCode(code);role.setName(code);role.setDescription(code);repository.save(role);}}};} }

@@ -1,0 +1,6 @@
+package com.onlinelearning.config;
+import com.onlinelearning.repository.UserRepository; import jakarta.servlet.*; import jakarta.servlet.http.*; import lombok.RequiredArgsConstructor; import org.springframework.security.authentication.*; import org.springframework.security.core.authority.*; import org.springframework.security.core.context.*; import org.springframework.stereotype.*; import org.springframework.web.filter.OncePerRequestFilter; import java.io.*;
+@Component @RequiredArgsConstructor public class JwtAuthenticationFilter extends OncePerRequestFilter {
+ private final JwtTokenProvider jwt; private final UserRepository users;
+ @Override protected void doFilterInternal(HttpServletRequest request,HttpServletResponse response,FilterChain chain)throws ServletException,IOException {String header=request.getHeader("Authorization"); if(header!=null&&header.startsWith("Bearer ")){String token=header.substring(7);if(jwt.valid(token))users.findByEmailIgnoreCase(jwt.subject(token)).filter(u->u.isEnabled()&&!u.isBlocked()).ifPresent(u->{var authorities=u.getRoles().stream().map(r->new SimpleGrantedAuthority(r.authority())).toList(); SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(u.getEmail(),null,authorities));});} chain.doFilter(request,response);}
+}
