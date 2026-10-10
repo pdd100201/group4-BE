@@ -3,10 +3,12 @@ package com.onlinelearning.controller;
 import com.onlinelearning.common.ApiMessage;
 import com.onlinelearning.dto.auth.ForgotPasswordRequest;
 import com.onlinelearning.dto.auth.LoginRequest;
+import com.onlinelearning.dto.auth.GoogleLoginRequest;
 import com.onlinelearning.dto.auth.RefreshRequest;
 import com.onlinelearning.dto.auth.RegisterRequest;
 import com.onlinelearning.dto.auth.ResetPasswordRequest;
 import com.onlinelearning.dto.auth.TokenResponse;
+import com.onlinelearning.dto.auth.VerifyEmailRequest;
 import com.onlinelearning.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +30,11 @@ public class AuthController {
         return auth.login(request);
     }
 
+    @PostMapping("/google")
+    public TokenResponse googleLogin(@Valid @RequestBody GoogleLoginRequest request) {
+        return auth.googleLogin(request);
+    }
+
     @PostMapping("/register")
     public ResponseEntity<ApiMessage> register(@Valid @RequestBody RegisterRequest request) {
         auth.register(request);
@@ -38,6 +45,24 @@ public class AuthController {
     @PostMapping("/refresh")
     public TokenResponse refresh(@Valid @RequestBody RefreshRequest request) {
         return auth.refresh(request);
+    }
+
+    @PostMapping("/verify-email")
+    public ApiMessage verifyEmail(@Valid @RequestBody VerifyEmailRequest request) {
+        auth.verifyEmail(request);
+        return new ApiMessage("Email verified. Your account is now active.");
+    }
+
+    @PostMapping("/resend-verification")
+    public ApiMessage resendVerification(@Valid @RequestBody ForgotPasswordRequest request) {
+        auth.resendVerification(request);
+        return new ApiMessage("If the account is pending verification, a new link will be sent.");
+    }
+
+    @PostMapping("/logout")
+    public ApiMessage logout(@Valid @RequestBody RefreshRequest request) {
+        auth.logout(request);
+        return new ApiMessage("Logged out successfully");
     }
 
     @PostMapping("/forgot-password")

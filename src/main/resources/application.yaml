@@ -1,8 +1,10 @@
 spring:
+  config:
+    import: optional:file:./.env[.properties]
   application:
     name: online-learning
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/online_learning_system?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/online_learning_system?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:abc123}
   jpa:
@@ -10,10 +12,20 @@ spring:
       ddl-auto: update
     open-in-view: false
   mail:
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:1025}
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${GMAIL_USERNAME:}
+    password: ${GMAIL_APP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
 app:
   jwt:
     secret: ${JWT_SECRET:change-this-to-a-base64-secret-with-at-least-256-bits}
@@ -23,4 +35,14 @@ app:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
   mail:
-    from: ${MAIL_FROM:no-reply@localhost}
+    from: ${MAIL_FROM:${GMAIL_USERNAME:no-reply@localhost}}
+  auth:
+    verification-token-hours: ${AUTH_VERIFICATION_TOKEN_HOURS:24}
+    reset-token-minutes: ${AUTH_RESET_TOKEN_MINUTES:15}
+    max-failed-logins: ${AUTH_MAX_FAILED_LOGINS:5}
+    lockout-minutes: ${AUTH_LOCKOUT_MINUTES:30}
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:455119335871-cd0qp0i6gqhfsjmd9ejboupv94mm6bcg.apps.googleusercontent.com}
+  seed-demo-users:
+    enabled: ${SEED_DEMO_USERS:true}
+    password: ${DEMO_USER_PASSWORD:Online@123}

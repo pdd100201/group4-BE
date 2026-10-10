@@ -15,12 +15,23 @@ public class SmtpEmailGateway implements EmailGateway {
     private String sender;
 
     @Override
+    public void sendAccountVerification(String recipient, String verificationUrl) {
+        send(recipient, "Online Learning - verify your account",
+                "Open this link to verify and activate your account: " + verificationUrl);
+    }
+
+    @Override
     public void sendPasswordReset(String recipient, String resetUrl) {
+        send(recipient, "Online Learning - password reset",
+                "Open this link to reset your password: " + resetUrl);
+    }
+
+    private void send(String recipient, String subject, String body) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(sender);
         message.setTo(recipient);
-        message.setSubject("Online Learning - password reset");
-        message.setText("Open this link to reset your password: " + resetUrl);
+        message.setSubject(subject);
+        message.setText(body);
         mailSender.send(message);
     }
 }
