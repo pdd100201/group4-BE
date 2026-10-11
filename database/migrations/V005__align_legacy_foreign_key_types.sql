@@ -1,0 +1,95 @@
+-- MySQL 8; apply after V004, with backend stopped and a full backup.
+-- Run the preflight file first: all violation counts must be zero.
+-- Normalize only the ID/FK columns implicated by Hibernate and their legacy FKs.
+-- Preserve IDs, nullability, AUTO_INCREMENT and existing FK actions.
+-- MySQL DDL auto-commits; do not use --force if a statement fails.
+
+ALTER TABLE `quiz_answers` DROP FOREIGN KEY `fk_answers_grader`;
+ALTER TABLE `quiz_answers` DROP FOREIGN KEY `fk_answers_question`;
+ALTER TABLE `audit_logs` DROP FOREIGN KEY `fk_audit_logs_user`;
+ALTER TABLE `post_comments` DROP FOREIGN KEY `fk_comments_post`;
+ALTER TABLE `post_comments` DROP FOREIGN KEY `fk_comments_user`;
+ALTER TABLE `courses` DROP FOREIGN KEY `fk_courses_expert`;
+ALTER TABLE `courses` DROP FOREIGN KEY `fk_courses_reviewer`;
+ALTER TABLE `lessons` DROP FOREIGN KEY `fk_lessons_course`;
+ALTER TABLE `question_options` DROP FOREIGN KEY `fk_options_question`;
+ALTER TABLE `password_reset_tokens` DROP FOREIGN KEY `fk_password_reset_user`;
+ALTER TABLE `payments` DROP FOREIGN KEY `fk_payments_user`;
+ALTER TABLE `posts` DROP FOREIGN KEY `fk_posts_author`;
+ALTER TABLE `student_lesson_progress` DROP FOREIGN KEY `fk_progress_lesson`;
+ALTER TABLE `questions` DROP FOREIGN KEY `fk_questions_course`;
+ALTER TABLE `quizzes` DROP FOREIGN KEY `fk_quizzes_course`;
+ALTER TABLE `quizzes` DROP FOREIGN KEY `fk_quizzes_lesson`;
+ALTER TABLE `quiz_questions` DROP FOREIGN KEY `fk_quiz_questions_question`;
+ALTER TABLE `course_registrations` DROP FOREIGN KEY `fk_registrations_course`;
+ALTER TABLE `course_registrations` DROP FOREIGN KEY `fk_registrations_user`;
+ALTER TABLE `transactions` DROP FOREIGN KEY `fk_transactions_course`;
+ALTER TABLE `transactions` DROP FOREIGN KEY `fk_transactions_processor`;
+ALTER TABLE `transactions` DROP FOREIGN KEY `fk_transactions_user`;
+
+ALTER TABLE `audit_logs` MODIFY COLUMN `user_id` BIGINT NULL;
+ALTER TABLE `course_registrations` MODIFY COLUMN `course_id` BIGINT NOT NULL;
+ALTER TABLE `course_registrations` MODIFY COLUMN `user_id` BIGINT NOT NULL;
+ALTER TABLE `courses` MODIFY COLUMN `expert_id` BIGINT NOT NULL;
+ALTER TABLE `courses` MODIFY COLUMN `id` BIGINT NOT NULL AUTO_INCREMENT;
+ALTER TABLE `courses` MODIFY COLUMN `reviewed_by` BIGINT NULL;
+ALTER TABLE `lessons` MODIFY COLUMN `course_id` BIGINT NOT NULL;
+ALTER TABLE `lessons` MODIFY COLUMN `id` BIGINT NOT NULL AUTO_INCREMENT;
+ALTER TABLE `password_reset_tokens` MODIFY COLUMN `user_id` BIGINT NOT NULL;
+ALTER TABLE `payments` MODIFY COLUMN `user_id` BIGINT NOT NULL;
+ALTER TABLE `post_comments` MODIFY COLUMN `post_id` BIGINT NOT NULL;
+ALTER TABLE `post_comments` MODIFY COLUMN `user_id` BIGINT NOT NULL;
+ALTER TABLE `posts` MODIFY COLUMN `author_id` BIGINT NOT NULL;
+ALTER TABLE `posts` MODIFY COLUMN `id` BIGINT NOT NULL AUTO_INCREMENT;
+ALTER TABLE `question_options` MODIFY COLUMN `question_id` BIGINT NOT NULL;
+ALTER TABLE `questions` MODIFY COLUMN `course_id` BIGINT NOT NULL;
+ALTER TABLE `questions` MODIFY COLUMN `id` BIGINT NOT NULL AUTO_INCREMENT;
+ALTER TABLE `quiz_answers` MODIFY COLUMN `graded_by` BIGINT NULL;
+ALTER TABLE `quiz_answers` MODIFY COLUMN `question_id` BIGINT NOT NULL;
+ALTER TABLE `quiz_questions` MODIFY COLUMN `question_id` BIGINT NOT NULL;
+ALTER TABLE `quizzes` MODIFY COLUMN `course_id` BIGINT NOT NULL;
+ALTER TABLE `quizzes` MODIFY COLUMN `lesson_id` BIGINT NULL;
+ALTER TABLE `student_lesson_progress` MODIFY COLUMN `lesson_id` BIGINT NOT NULL;
+ALTER TABLE `transactions` MODIFY COLUMN `course_id` BIGINT NOT NULL;
+ALTER TABLE `transactions` MODIFY COLUMN `processed_by` BIGINT NULL;
+ALTER TABLE `transactions` MODIFY COLUMN `user_id` BIGINT NOT NULL;
+ALTER TABLE `users` MODIFY COLUMN `id` BIGINT NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `quiz_answers` ADD CONSTRAINT `fk_answers_grader` FOREIGN KEY (`graded_by`) REFERENCES `users` (`id`) ON UPDATE CASCADE ON DELETE SET NULL;
+ALTER TABLE `quiz_answers` ADD CONSTRAINT `fk_answers_question` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `audit_logs` ADD CONSTRAINT `fk_audit_logs_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE ON DELETE SET NULL;
+ALTER TABLE `post_comments` ADD CONSTRAINT `fk_comments_post` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`) ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE `post_comments` ADD CONSTRAINT `fk_comments_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `courses` ADD CONSTRAINT `fk_courses_expert` FOREIGN KEY (`expert_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `courses` ADD CONSTRAINT `fk_courses_reviewer` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`id`) ON UPDATE CASCADE ON DELETE SET NULL;
+ALTER TABLE `lessons` ADD CONSTRAINT `fk_lessons_course` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `question_options` ADD CONSTRAINT `fk_options_question` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`) ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE `password_reset_tokens` ADD CONSTRAINT `fk_password_reset_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE ON DELETE CASCADE;
+ALTER TABLE `payments` ADD CONSTRAINT `fk_payments_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `posts` ADD CONSTRAINT `fk_posts_author` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `student_lesson_progress` ADD CONSTRAINT `fk_progress_lesson` FOREIGN KEY (`lesson_id`) REFERENCES `lessons` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `questions` ADD CONSTRAINT `fk_questions_course` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `quizzes` ADD CONSTRAINT `fk_quizzes_course` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `quizzes` ADD CONSTRAINT `fk_quizzes_lesson` FOREIGN KEY (`lesson_id`) REFERENCES `lessons` (`id`) ON UPDATE CASCADE ON DELETE SET NULL;
+ALTER TABLE `quiz_questions` ADD CONSTRAINT `fk_quiz_questions_question` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `course_registrations` ADD CONSTRAINT `fk_registrations_course` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `course_registrations` ADD CONSTRAINT `fk_registrations_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `transactions` ADD CONSTRAINT `fk_transactions_course` FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `transactions` ADD CONSTRAINT `fk_transactions_processor` FOREIGN KEY (`processed_by`) REFERENCES `users` (`id`) ON UPDATE CASCADE ON DELETE SET NULL;
+ALTER TABLE `transactions` ADD CONSTRAINT `fk_transactions_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE CASCADE ON DELETE RESTRICT;
+ALTER TABLE `audit_log` ADD CONSTRAINT `FKp0xyrkkoeraheio5qt1iihlo1` FOREIGN KEY (`actor_id`) REFERENCES `users` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `auth_sessions` ADD CONSTRAINT `FKpu507182mdfutajr71rgk67l` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `course` ADD CONSTRAINT `FKhevvk0n8op2hjepf21ywwdyfx` FOREIGN KEY (`expert_id`) REFERENCES `users` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `course` ADD CONSTRAINT `FKg635yd1lnrxuqshxb6gdiu7ni` FOREIGN KEY (`reviewed_by_id`) REFERENCES `users` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `course_registration` ADD CONSTRAINT `FK57u5po40o68nu2mk7h0cjjtv2` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `email_verification_tokens` ADD CONSTRAINT `FKi1c4mmamlb8keqt74k4lrtwhc` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `post_comment` ADD CONSTRAINT `FKaf8oua8l0pox6p8hb1eu14ftc` FOREIGN KEY (`author_id`) REFERENCES `users` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `post_comment` ADD CONSTRAINT `FKl6wxpohlclbjykgpkjdqphmfg` FOREIGN KEY (`post_id`) REFERENCES `posts` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `question_option` ADD CONSTRAINT `FKtrf5invxsty5o99qqlrkgjwkh` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `questions` ADD CONSTRAINT `FKqjlxbtg8i4mdn5cnm48e7cs0l` FOREIGN KEY (`course_id`) REFERENCES `course` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `quiz_answer` ADD CONSTRAINT `FKfpg92j019mob1ccaj90hs581b` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `quiz_attempt` ADD CONSTRAINT `FKb0vawmgxwdgwqd52nh3vmeaby` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `quiz_question` ADD CONSTRAINT `FKqeltu3y1r2onimmphk1s8eirs` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `student_lesson_progress` ADD CONSTRAINT `FKs348gll01vkh8mwv9pbea8jig` FOREIGN KEY (`lesson_id`) REFERENCES `lesson` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `student_lesson_progress` ADD CONSTRAINT `FKoi2t7ski0cofebvv2f6srk7lv` FOREIGN KEY (`student_id`) REFERENCES `users` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
+ALTER TABLE `user_roles` ADD CONSTRAINT `FKhfh9dx7w3ubf1co1vdev94g3f` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON UPDATE NO ACTION ON DELETE NO ACTION;
