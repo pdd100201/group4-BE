@@ -24,8 +24,25 @@ public class CourseCatalogServiceImpl implements CourseCatalogService {
 
     @Override
     public List<CourseSummaryResponse> listPublished() {
-        return courses.findByStatusIn(List.of(CourseStatus.PUBLISHED))
-                .stream().map(CourseSummaryResponse::from).toList();
+        return listPublished("", "");
+    }
+
+    @Override
+    public List<CourseSummaryResponse> listPublished(String search, String category) {
+        if ((search != null && search.length() > 255) || (category != null && category.length() > 255))
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Từ khóa hoặc danh mục quá dài.");
+        org.springframework.data.jpa.domain.Specification<com.onlinelearning.entity.Course> spec = (root, query, cb) -> {
+            root.fetch("expert"); root.fetch("thumbnail", jakarta.persistence.criteria.JoinType.LEFT);
+            return cb.equal(root.get("status"), CourseStatus.PUBLISHED);
+        };
+        if (search != null && !search.isBlank()) {
+            String pattern = "%" + search.trim().toLowerCase(java.util.Locale.ROOT)
+                .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
+            spec = spec.and((root, query, cb) -> cb.like(cb.lower(root.get("title")), pattern, '\\'));
+        }
+        if (category != null && !category.isBlank()) spec = spec.and((root, query, cb) -> cb.equal(root.get("category"), category.trim()));
+        return courses.findAll(spec, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "id"))
+            .stream().map(CourseSummaryResponse::from).toList();
     }
 
     @Override

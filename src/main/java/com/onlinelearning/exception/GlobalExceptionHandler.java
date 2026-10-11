@@ -5,6 +5,8 @@ import org.springframework.http.*; import org.springframework.mail.MailException
  @ExceptionHandler({org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class, org.springframework.web.bind.MissingServletRequestParameterException.class})
  ResponseEntity<?> parameter(Exception e){return response(HttpStatus.BAD_REQUEST,"Invalid request parameter");}
  @ExceptionHandler(MethodArgumentNotValidException.class) ResponseEntity<?> validation(MethodArgumentNotValidException e){return response(HttpStatus.BAD_REQUEST,e.getBindingResult().getFieldErrors().get(0).getDefaultMessage());}
+ @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+ ResponseEntity<?> malformedJson(Exception e){return response(HttpStatus.BAD_REQUEST,"Invalid request body");}
  @ExceptionHandler(MailException.class) ResponseEntity<?> mail(MailException e){return response(HttpStatus.SERVICE_UNAVAILABLE,"Email service is unavailable");}
  @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class) ResponseEntity<?> uploadSize(Exception e){return response(HttpStatus.PAYLOAD_TOO_LARGE,"Tệp tải lên vượt giới hạn 100 MB.");}
  @ExceptionHandler(Exception.class) ResponseEntity<?> other(Exception e){return response(HttpStatus.INTERNAL_SERVER_ERROR,"Unexpected server error");}

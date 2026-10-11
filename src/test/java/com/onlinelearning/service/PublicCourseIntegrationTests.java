@@ -66,4 +66,16 @@ class PublicCourseIntegrationTests {
         course.setStatus(CourseStatus.ARCHIVED);
         mvc.perform(get("/api/v1/public/courses/" + course.getId())).andExpect(status().isNotFound());
     }
+
+    @Test void homeSearchAndCategoryLinksFilterPublicCoursesInDatabase() throws Exception {
+        Course java = create("Java basic", CourseStatus.PUBLISHED);
+        java.setCategory("Code");
+        Course design = create("Design basic", CourseStatus.PUBLISHED);
+        design.setCategory("Design");
+        create("Java hidden", CourseStatus.DRAFT);
+        mvc.perform(get("/api/v1/public/courses").param("search", "java").param("category", "Code"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1)).andExpect(jsonPath("$[0].id").value(java.getId().intValue()));
+        mvc.perform(get("/api/v1/public/courses").param("search", "%"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+    }
 }
