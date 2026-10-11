@@ -30,9 +30,9 @@ public class CourseController {
     }
 
     @PostMapping("/api/v1/manager/courses/{id}/reject")
-    public CourseWorkflowResponse reject(@PathVariable Long id, @RequestBody RejectCourse request, Authentication actor) {
+    public CourseWorkflowResponse reject(@PathVariable Long id, @jakarta.validation.Valid @RequestBody RejectCourse request, Authentication actor) {
         return CourseWorkflowResponse.from(courses.reject(id, actor.getName(), request.reason()));
     }
 
-    public record RejectCourse(String reason) {}
+    public record RejectCourse(@jakarta.validation.constraints.NotBlank(message="Lý do từ chối là bắt buộc") @jakarta.validation.constraints.Size(max=255, message="Lý do từ chối tối đa 255 ký tự") String reason) {}
 }
