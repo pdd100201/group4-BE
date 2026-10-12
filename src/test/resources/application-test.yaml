@@ -1,0 +1,30 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:online_learning_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  mail:
+    host: localhost
+    port: 3025
+app:
+  jwt:
+    secret: test-secret-with-enough-entropy-for-hmac-signing-only
+    access-token-minutes: 15
+    refresh-token-days: 7
+  cors:
+    allowed-origins: http://localhost:5173
+  frontend-url: http://localhost:5173
+  mail:
+    from: no-reply@test.local
+  auth:
+    verification-token-hours: 24
+    reset-token-minutes: 15
+    max-failed-logins: 5
+    lockout-minutes: 30
+  google:
+    client-id: test-client-id.apps.googleusercontent.com
