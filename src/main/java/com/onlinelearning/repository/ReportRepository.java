@@ -19,7 +19,8 @@ public class ReportRepository {
     private final EntityManager em;
     private static final String DTO = "com.onlinelearning.dto.report.ReportRow";
     private static final String FIRST_TRANSACTION = "exists (select t.id from Transaction t where t.payment = p "
-            + "and t.id = (select min(ft.id) from Transaction ft where ft.payment = p)";
+            + "and t.id = (select min(ft.id) from Transaction ft where ft.payment = p "
+            + "and (ft.type in ('VNPAY_SUCCEEDED', 'SEPAY_SUCCEEDED') or (ft.type not like 'VNPAY_%' and ft.type not like 'SEPAY_%')))";
 
     public record Result(List<ReportRow> rows, long count, BigDecimal amount) {}
 
@@ -30,7 +31,7 @@ public class ReportRepository {
         if (courseId != null) params.put("courseId", courseId);
         String registrationDates = dates("r", from, until, params);
         String paymentDates = FIRST_TRANSACTION + dates("t", from, until, params) + ")";
-        String payments = " from Payment p join p.registration r join r.course c where p.status = :success"
+        String payments = " from Payment p join p.registration r join r.course c where p.status = :success and (p.provider is null or p.provider <> 'SEPAY_TEST')"
                 + " and " + paymentDates + course;
         String query;
         String countQuery;
@@ -55,7 +56,7 @@ public class ReportRepository {
                 countQuery = "select count(distinct c.id)" + payments;
             } else {
                 String correlatedPayments = "select coalesce(sum(p.amount), 0) from Payment p "
-                        + "where p.registration.course = c and p.status = :success and " + paymentDates;
+                        + "where p.registration.course = c and p.status = :success and (p.provider is null or p.provider <> 'SEPAY_TEST') and " + paymentDates;
                 query = "select new " + DTO + "(c.id, c.title, c.status, "
                         + "(select count(r.id) from CourseRegistration r where r.course = c"
                         + registrationDates + "), (" + correlatedPayments + "))"

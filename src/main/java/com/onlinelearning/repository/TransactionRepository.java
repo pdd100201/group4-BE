@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.*;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long>,
         JpaSpecificationExecutor<Transaction> {
+    Optional<Transaction> findFirstByPaymentIdAndTypeOrderByIdDesc(Long paymentId, String type);
+    java.util.List<Transaction> findByPaymentId(Long paymentId);
     @Override
     @EntityGraph(attributePaths = {"payment", "payment.registration", "payment.registration.student",
             "payment.registration.course"})

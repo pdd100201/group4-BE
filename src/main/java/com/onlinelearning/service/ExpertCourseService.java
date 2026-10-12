@@ -67,8 +67,12 @@ public class ExpertCourseService {
         }
         record(c, "COURSE_DELETED");
         entityManager.createQuery("select a from MediaAsset a where a.course.id=:id", MediaAsset.class).setParameter("id", id).getResultList().forEach(a -> a.setCourse(null));
-        courses.delete(c);
-        courses.flush();
+        entityManager.flush();
+        entityManager.createQuery("delete from CoursePackage p where p.course.id=:id").setParameter("id",id).executeUpdate();
+        // Bulk deletion bypasses managed package objects; detach them before deleting the parent.
+        entityManager.clear();
+        entityManager.createQuery("delete from Course c where c.id=:id").setParameter("id",id).executeUpdate();
+        entityManager.flush();
     }
 
     private Course owned(Long id, String email, boolean lock) {

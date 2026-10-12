@@ -1,0 +1,11 @@
+# Copy to sepay-local.properties. Use the bank account from the same SePay mode.
+sepay.mode=test
+sepay.bank=PASTE_BANK_GATEWAY_NAME
+sepay.account-number=PASTE_RECEIVING_ACCOUNT_NUMBER
+sepay.account-holder=PASTE_ACCOUNT_HOLDER
+# Optional bank VA: QR recipient; webhook accountNumber remains the root account.
+sepay.qr-account=
+# Must match the API Key configured on the SePay webhook; at least 32 characters.
+sepay.webhook-api-key=PASTE_WEBHOOK_API_KEY
+# Bank-specific description prefix, e.g. SEVQR for VietinBank; leave empty otherwise.
+sepay.description-prefix=

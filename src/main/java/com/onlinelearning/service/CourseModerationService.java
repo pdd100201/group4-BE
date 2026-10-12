@@ -56,6 +56,7 @@ public class CourseModerationService {
         em.createQuery("delete from Quiz q where q.course.id=:id").setParameter("id", id).executeUpdate();
         em.createQuery("delete from Question q where q.course.id=:id").setParameter("id", id).executeUpdate();
         em.createQuery("delete from Lesson l where l.course.id=:id").setParameter("id", id).executeUpdate();
+        em.createQuery("delete from CoursePackage p where p.course.id=:id").setParameter("id",id).executeUpdate();
         // Cloudinary assets are retained; only the deleted course association is cleared.
         em.createQuery("update MediaAsset a set a.course=null where a.course.id=:id").setParameter("id", id).executeUpdate();
         // Bulk mutations bypass the persistence context. Clear stale child objects

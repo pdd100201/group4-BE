@@ -14,5 +14,13 @@ public class CourseRegistration extends BaseEntity {
  private BigDecimal priceSnapshot;
  private BigDecimal discountSnapshot;
  private Integer validityDaysSnapshot;
+ @ManyToOne private CoursePackage coursePackage;
+ @Enumerated(EnumType.STRING) private PackageDuration packageDurationSnapshot;
+ private Integer validityMonthsSnapshot;
+ private Boolean lifetimeSnapshot;
+ @Column(precision=5,scale=2) private BigDecimal discountPercentSnapshot;
+ private String studentNameSnapshot;
+ private String studentEmailSnapshot;
+ private String studentPhoneSnapshot;
  @PrePersist void recordCreationTime() { if (createdAt == null) createdAt = Instant.now(); }
 }

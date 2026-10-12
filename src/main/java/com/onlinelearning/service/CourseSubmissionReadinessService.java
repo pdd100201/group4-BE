@@ -31,6 +31,9 @@ public class CourseSubmissionReadinessService {
         checks.add(new Check("BASIC", "Có tên, danh mục và mô tả khóa học", text(course.getTitle()) && text(course.getCategory()) && text(course.getDescription())));
         checks.add(new Check("THUMBNAIL", "Có ảnh khóa học", course.getThumbnail() != null));
         checks.add(new Check("PRICE", "Giá khóa học hợp lệ (không âm)", course.getPrice() != null && course.getPrice().signum() >= 0));
+        long availablePackages=em.createQuery("select count(p) from CoursePackage p where p.course.id=:id and p.active=true",Long.class)
+            .setParameter("id",course.getId()).getSingleResult();
+        checks.add(new Check("PACKAGES","Có ít nhất một gói học đang mở đăng ký",availablePackages>0));
         var lessons = em.createQuery("select l from Lesson l left join fetch l.video where l.course.id=:id order by l.id", Lesson.class)
             .setParameter("id", course.getId()).getResultList();
         checks.add(new Check("LESSONS", "Có ít nhất một bài học; tất cả bài học Active, đủ tên/nội dung/thứ tự và video", !lessons.isEmpty() && lessons.stream().allMatch(l ->

@@ -1,6 +1,7 @@
 package com.onlinelearning.service.impl;
 
 import com.onlinelearning.dto.management.*;
+import com.onlinelearning.common.TransactionOutcome;
 import com.onlinelearning.entity.*;
 import com.onlinelearning.exception.ApiException;
 import com.onlinelearning.repository.*;
@@ -28,6 +29,7 @@ public class ManagementReadServiceImpl implements ManagementReadService {
             RegistrationStatus status, LocalDate from, LocalDate to, int page, int size) {
         authorize();
         validate(from, to, page, size);
+        validateSearch(q, courseId);
         var result = registrations.findAll((root, query, cb) -> {
             List<Predicate> filters = new ArrayList<>();
             registrationFilters(root, cb, filters, q, courseId);
@@ -51,11 +53,16 @@ public class ManagementReadServiceImpl implements ManagementReadService {
             int page, int size) {
         authorize();
         validate(from, to, page, size);
+        validateSearch(q, courseId);
+        if (provider != null && provider.length() > 64)
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid payment provider");
         if ((minAmount != null && minAmount.signum() < 0) ||
                 (maxAmount != null && maxAmount.signum() < 0) ||
                 (minAmount != null && maxAmount != null && minAmount.compareTo(maxAmount) > 0)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid amount range");
         }
+        if (!validAmount(minAmount) || !validAmount(maxAmount))
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Amount must have at most 12 integer digits and 2 decimal places");
         var result = transactions.findAll((root, query, cb) -> {
             List<Predicate> filters = new ArrayList<>();
             var payment = root.join("payment");
@@ -63,15 +70,25 @@ public class ManagementReadServiceImpl implements ManagementReadService {
             registrationFilters(registration, cb, filters, null, courseId);
             if (q != null && !q.isBlank()) {
                 String pattern = pattern(q);
-                filters.add(cb.or(
+                List<Predicate> search = new ArrayList<>(List.of(
                         cb.like(cb.lower(payment.get("providerReference")), pattern, '\\'),
                         cb.like(cb.lower(registration.join("student").get("email")), pattern, '\\'),
                         cb.like(cb.lower(registration.join("student").get("fullName")), pattern, '\\'),
                         cb.like(cb.lower(registration.join("course").get("title")), pattern, '\\')));
+                var idMatch = java.util.regex.Pattern.compile("(?:#|OLST|OLSL|OLS)?([1-9][0-9]{0,17})").matcher(q.trim().toUpperCase(Locale.ROOT));
+                if (idMatch.matches()) search.add(cb.equal(root.get("id"), Long.parseLong(idMatch.group(1))));
+                filters.add(cb.or(search.toArray(Predicate[]::new)));
             }
-            if (status != null) filters.add(cb.equal(payment.get("status"), status));
-            if (provider != null && !provider.isBlank())
-                filters.add(cb.equal(cb.lower(payment.get("provider")), provider.trim().toLowerCase(Locale.ROOT)));
+            if (status != null) {
+                var types = TransactionOutcome.typesFor(status);
+                var legacy = cb.and(cb.not(root.get("type").in(TransactionOutcome.knownTypes())), cb.equal(payment.get("status"), status));
+                filters.add(types.isEmpty() ? legacy : cb.or(root.get("type").in(types), legacy));
+            }
+            if (provider != null && !provider.isBlank()) {
+                var oldAttempt = cb.like(root.get("type"), "VNPAY\\_%", '\\');
+                var providerMatch = cb.equal(cb.lower(payment.get("provider")), provider.trim().toLowerCase(Locale.ROOT));
+                filters.add("VNPAY".equalsIgnoreCase(provider.trim()) ? cb.or(oldAttempt, providerMatch) : cb.and(cb.not(oldAttempt), providerMatch));
+            }
             if (minAmount != null) filters.add(cb.greaterThanOrEqualTo(root.get("amount"), minAmount));
             if (maxAmount != null) filters.add(cb.lessThanOrEqualTo(root.get("amount"), maxAmount));
             dateFilters(root, cb, filters, from, to);
@@ -100,6 +117,15 @@ public class ManagementReadServiceImpl implements ManagementReadService {
         if (page < 0 || size < 1 || size > 100 || (from != null && to != null && from.isAfter(to)) ||
                 LocalDate.MAX.equals(to))
             throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid pagination or date range");
+    }
+    private void validateSearch(String q, Long courseId) {
+        if (q != null && q.length() > 200 || courseId != null && courseId <= 0)
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid search or course ID");
+    }
+    private boolean validAmount(BigDecimal value) {
+        if (value == null) return true;
+        var normalized = value.stripTrailingZeros();
+        return Math.max(0, normalized.scale()) <= 2 && normalized.precision() - normalized.scale() <= 12;
     }
 
     private void registrationFilters(From<?, ?> root, CriteriaBuilder cb, List<Predicate> filters,

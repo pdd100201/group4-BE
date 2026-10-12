@@ -1,5 +1,30 @@
 # UC44-48 Management Read Flows
 
+## Current UC48 transaction filters
+
+Admin/Manager transaction pages use the existing paginated GET endpoint. Supported
+filters combine with AND: courseId, outcome, provider (SePay or SePay Test Mode),
+UTC date range and inclusive amount range. Search matches provider reference,
+Student name/email, course title, or a transaction ID (`62`, `#62`, `OLST62`,
+`OLSL62`, `OLS62`). Text wildcard characters are escaped rather than interpreted.
+
+Each known payment attempt has its own outcome. An expired/failed old attempt is
+not reported as successful just because its parent Payment later succeeded. DTO
+display and database filtering share the same type/status mapping; unknown legacy
+types retain the existing parent-Payment fallback. Retired provider attempts remain
+readable and are not mislabeled as SePay after an unpaid provider transition.
+
+Validation: positive course ID; search <= 200 characters; provider <= 64 characters;
+nonnegative amounts with <= 12 integer digits and 2 decimals; valid ordered date
+and amount ranges; bounded pagination. Dates include the entire final UTC day and
+are displayed in UTC consistently. Filters survive paging and detail/back navigation;
+applying filters returns to page 0, and Reset removes them.
+
+Verified using isolated H2 command checks and desktop/mobile browser fixtures,
+without new test classes or modifications to the user's MySQL records.
+
+## Original Slice Reference
+
 Scope agreed in chat: implement registration/transaction list, detail and filters with
 Spring Boot + React; payment initiation (UC70) and revenue (UC49) are deferred.
 The user authorized proceeding from OLS_MASTER_CODING_PROMPT.md and existing UI;

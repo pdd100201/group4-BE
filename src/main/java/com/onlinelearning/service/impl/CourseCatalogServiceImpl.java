@@ -9,6 +9,11 @@ import jakarta.persistence.Tuple;
 import org.springframework.http.HttpStatus;
 import com.onlinelearning.entity.CourseStatus;
 import com.onlinelearning.repository.CourseRepository;
+import com.onlinelearning.repository.CoursePackageRepository;
+import com.onlinelearning.dto.course.CoursePackageResponse;
+import java.math.BigDecimal;
+import java.util.Map;
+import java.util.stream.Collectors;
 import com.onlinelearning.service.CourseCatalogService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -21,11 +26,16 @@ import org.springframework.transaction.annotation.Transactional;
 public class CourseCatalogServiceImpl implements CourseCatalogService {
     private final CourseRepository courses;
     private final EntityManager em;
+    private final CoursePackageRepository packages;
 
     @Override
     public List<CourseSummaryResponse> listPublished() {
-        return courses.findByStatusIn(List.of(CourseStatus.PUBLISHED))
-                .stream().map(CourseSummaryResponse::from).toList();
+        var published=courses.findByStatusIn(List.of(CourseStatus.PUBLISHED));
+        if(published.isEmpty()) return List.of();
+        Map<Long,BigDecimal> lowest=packages.findByCourseIdInAndActiveTrue(published.stream().map(c->c.getId()).toList()).stream()
+            .collect(Collectors.toMap(p->p.getCourse().getId(),p->CoursePackageResponse.from(p).finalPrice(),BigDecimal::min));
+        return published.stream().map(c->{var r=CourseSummaryResponse.from(c);
+            return new CourseSummaryResponse(r.id(),r.title(),r.description(),r.category(),lowest.get(c.getId()),r.thumbnailUrl(),r.expertName());}).toList();
     }
 
     @Override
@@ -38,7 +48,9 @@ public class CourseCatalogServiceImpl implements CourseCatalogService {
             .map(row -> new LessonOutline(row.get("id", Long.class), row.get("title", String.class), row.get("position", Integer.class))).toList();
         long quizCount = em.createQuery("select count(q) from Quiz q where q.course.id=:id and q.active=true", Long.class)
             .setParameter("id", id).getSingleResult();
-        return new PublicCourseDetailResponse(course.getId(), course.getTitle(), course.getDescription(), course.getCategory(), course.getPrice(),
-            course.getThumbnail() == null ? null : course.getThumbnail().getSecureUrl(), course.getExpert().getFullName(), lessons, quizCount);
+        var available=packages.findByCourseIdAndActiveTrueOrderByIdAsc(id).stream().map(CoursePackageResponse::from).toList();
+        BigDecimal lowest=available.stream().map(CoursePackageResponse::finalPrice).min(BigDecimal::compareTo).orElse(null);
+        return new PublicCourseDetailResponse(course.getId(), course.getTitle(), course.getDescription(), course.getCategory(), lowest,
+            course.getThumbnail() == null ? null : course.getThumbnail().getSecureUrl(), course.getExpert().getFullName(), lessons, quizCount, available);
     }
 }
