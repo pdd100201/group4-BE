@@ -36,7 +36,8 @@ class ExpertCourseIntegrationTests {
             .andExpect(status().isOk()).andExpect(jsonPath("status").value("PUBLISHED"))
             .andExpect(jsonPath("editable").value(true)).andExpect(jsonPath("deletable").value(false));
         mvc.perform(get("/api/v1/public/courses/" + created.id())).andExpect(status().isOk())
-            .andExpect(jsonPath("title").value("Published updated")).andExpect(jsonPath("price").value(450000));
+            .andExpect(jsonPath("title").value("Published updated")).andExpect(jsonPath("price").isEmpty())
+            .andExpect(jsonPath("packages").isEmpty()); // Legacy price is not a purchasable package.
         mvc.perform(delete("/api/v1/expert/courses/" + created.id()).with(user(OWNER).roles("EXPERT")))
             .andExpect(status().isConflict());
         assertEquals(403, assertThrows(ApiException.class, () -> expert.update(created.id(), "student@onlinelearning.local", input("Attack"))).status().value());

@@ -23,7 +23,9 @@ class PublicCourseIntegrationTests {
     @Autowired MockMvc mvc;
     private Course create(String title, CourseStatus status) {
         Long id = expert.create("expert@onlinelearning.local", new CourseRequest(title, "Description " + title, "Programming", new BigDecimal("299000"))).id();
-        Course course = courses.findById(id).orElseThrow(); course.setStatus(status); return course;
+        Course course = courses.findById(id).orElseThrow(); course.setStatus(status);
+        CoursePackage p=new CoursePackage();p.setCourse(course);p.setDuration(PackageDuration.ONE_MONTH);p.setPrice(new BigDecimal("299000"));em.persist(p);
+        return course;
     }
     @Test void detailMatchesRequestedCourseAndOnlyExposesActiveOutline() throws Exception {
         Course first = create("First course", CourseStatus.PUBLISHED);
@@ -58,6 +60,8 @@ class PublicCourseIntegrationTests {
     @Test void listAndDetailReflectExpertUpdatesAndArchive() throws Exception {
         Course course = create("Original", CourseStatus.DRAFT);
         expert.update(course.getId(), "expert@onlinelearning.local", new CourseRequest("Expert edited title", "New description", "Java", new BigDecimal("450000")));
+        em.createQuery("select p from CoursePackage p where p.course.id=:id",CoursePackage.class).setParameter("id",course.getId()).getResultList()
+            .forEach(p->p.setPrice(new BigDecimal("450000")));
         course.setStatus(CourseStatus.PUBLISHED);
         mvc.perform(get("/api/v1/public/courses")).andExpect(status().isOk())
             .andExpect(jsonPath("$[0].id").value(course.getId().intValue())).andExpect(jsonPath("$[0].title").value("Expert edited title"));

@@ -78,7 +78,7 @@ public class MediaService {
         if (!"video".equals(a.getResourceType())) throw new ApiException(HttpStatus.BAD_REQUEST, "Tệp không phải video.");
         boolean allowed = a.getOwner().getId().equals(user.getId()) || user.getRoles().stream().anyMatch(r -> "MANAGER".equals(r.getCode()));
         if (!allowed && a.getCourse() != null && a.getCourse().getStatus() == CourseStatus.PUBLISHED && user.getRoles().stream().anyMatch(r -> "STUDENT".equals(r.getCode()))) {
-            Long count = em.createQuery("select count(r) from CourseRegistration r where r.student.id=:user and r.course.id=:course and r.status=:status and r.validFrom<=:now and r.validUntil>:now", Long.class)
+            Long count = em.createQuery("select count(r) from CourseRegistration r where r.student.id=:user and r.course.id=:course and r.status=:status and r.validFrom<=:now and (r.lifetimeSnapshot=true or r.validUntil>:now)", Long.class)
                 .setParameter("user", user.getId()).setParameter("course", a.getCourse().getId()).setParameter("status", RegistrationStatus.ACTIVE).setParameter("now", Instant.now()).getSingleResult();
             Long linked = em.createQuery("select count(l) from Lesson l where l.video.id=:id and l.active=true", Long.class).setParameter("id", id).getSingleResult();
             allowed = count > 0 && linked > 0;

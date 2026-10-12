@@ -2,6 +2,7 @@ package com.onlinelearning.exception;
 import org.springframework.http.*; import org.springframework.mail.MailException; import org.springframework.web.bind.annotation.*; import org.springframework.web.bind.MethodArgumentNotValidException; import java.time.*; import java.util.*;
 @RestControllerAdvice public class GlobalExceptionHandler {
  @ExceptionHandler(ApiException.class) ResponseEntity<?> api(ApiException e){return response(e.status(),e.getMessage());}
+ @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class) ResponseEntity<?> malformedBody(Exception e){return response(HttpStatus.BAD_REQUEST,"Request body is missing or invalid");}
  @ExceptionHandler({org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class, org.springframework.web.bind.MissingServletRequestParameterException.class})
  ResponseEntity<?> parameter(Exception e){return response(HttpStatus.BAD_REQUEST,"Invalid request parameter");}
  @ExceptionHandler(MethodArgumentNotValidException.class) ResponseEntity<?> validation(MethodArgumentNotValidException e){return response(HttpStatus.BAD_REQUEST,e.getBindingResult().getFieldErrors().get(0).getDefaultMessage());}

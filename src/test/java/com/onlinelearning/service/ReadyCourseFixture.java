@@ -8,6 +8,7 @@ import java.time.Instant;
 final class ReadyCourseFixture {
     static void populate(EntityManager em, Course course) {
         MediaAsset image = asset(em, course, "image", "COURSE_IMAGE"); course.setThumbnail(image);
+        CoursePackage p=new CoursePackage();p.setCourse(course);p.setDuration(PackageDuration.ONE_MONTH);p.setPrice(java.math.BigDecimal.valueOf(100000));em.persist(p);
         Lesson lesson = new Lesson(); lesson.setCourse(course); lesson.setTitle("Bài một"); lesson.setContent("Lesson content");
         lesson.setPosition(1); lesson.setActive(true); lesson.setVideo(asset(em, course, "video", "LESSON_VIDEO")); em.persist(lesson);
         Quiz quiz = new Quiz(); quiz.setCourse(course); quiz.setTitle("Quiz"); quiz.setDurationMinutes(15); quiz.setPassRate(70); quiz.setMaxAttempts(3); quiz.setActive(true); em.persist(quiz);
