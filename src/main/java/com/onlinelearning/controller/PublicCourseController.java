@@ -16,8 +16,9 @@ public class PublicCourseController {
     private final CourseCatalogService courses;
 
     @GetMapping
-    public List<CourseSummaryResponse> list() {
-        return courses.listPublished();
+    public List<CourseSummaryResponse> list(@org.springframework.web.bind.annotation.RequestParam(defaultValue="") String search,
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue="") String category) {
+        return courses.listPublished(search, category);
     }
 
     @GetMapping("/{id}")
