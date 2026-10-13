@@ -67,7 +67,7 @@ class CourseModerationIntegrationTests {
             Course c = published(); User student = users.findByEmailIgnoreCase("student@onlinelearning.local").orElseThrow();
             if (retention.equals("registration")) { CourseRegistration r = new CourseRegistration(); r.setCourse(c); r.setStudent(student); em.persist(r); }
             if (retention.equals("attempt")) { Quiz q = new Quiz(); q.setCourse(c); q.setTitle("Quiz"); em.persist(q); QuizAttempt a = new QuizAttempt(); a.setQuiz(q); a.setStudent(student); em.persist(a); }
-            if (retention.equals("progress")) { Lesson l = new Lesson(); l.setCourse(c); l.setTitle("Lesson"); em.persist(l); StudentLessonProgress p = new StudentLessonProgress(); p.setLesson(l); p.setStudent(student); em.persist(p); }
+            if (retention.equals("progress")) { Lesson l = new Lesson(); l.setCourse(c); l.setTitle("Lesson"); em.persist(l); CourseRegistration r = new CourseRegistration(); r.setCourse(c); r.setStudent(student); em.persist(r); StudentLessonProgress p = new StudentLessonProgress(); p.setLesson(l); p.setStudent(student); p.setRegistration(r); em.persist(p); }
             assertEquals(409, assertThrows(ApiException.class, () -> moderation.delete(c.getId(), "manager@onlinelearning.local", "Violation")).status().value());
             assertEquals(CourseStatus.PUBLISHED, c.getStatus()); assertTrue(courses.existsById(c.getId()));
         }

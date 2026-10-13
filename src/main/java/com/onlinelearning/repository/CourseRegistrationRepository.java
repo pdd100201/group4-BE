@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.*;
 
 public interface CourseRegistrationRepository extends JpaRepository<CourseRegistration, Long>,
         JpaSpecificationExecutor<CourseRegistration> {
+    @Query("select r from CourseRegistration r where r.student.id=:studentId and r.course.id=:courseId and r.status=com.onlinelearning.entity.RegistrationStatus.ACTIVE and r.validFrom<=:now and (r.lifetimeSnapshot=true or r.validUntil>:now) order by r.id desc")
+    java.util.List<CourseRegistration> findAccessRegistration(@org.springframework.data.repository.query.Param("studentId") Long studentId,
+        @org.springframework.data.repository.query.Param("courseId") Long courseId,@org.springframework.data.repository.query.Param("now") java.time.Instant now,Pageable pageable);
     @EntityGraph(attributePaths = {"course", "course.expert", "course.thumbnail"})
     @Query("""
         select r from CourseRegistration r where r.student.id=:studentId

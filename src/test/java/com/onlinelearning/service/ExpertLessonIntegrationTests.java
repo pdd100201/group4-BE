@@ -77,7 +77,9 @@ class ExpertLessonIntegrationTests {
         assertEquals(409, assertThrows(ApiException.class, () -> lessons.create(id, OWNER, input(1))).status().value());
         StudentLessonProgress progress = new StudentLessonProgress();
         progress.setStudent(users.findByEmailIgnoreCase("student@onlinelearning.local").orElseThrow());
-        progress.setLesson(em.find(Lesson.class, l.id())); em.persist(progress); em.flush();
+        progress.setLesson(em.find(Lesson.class, l.id()));
+        CourseRegistration registration = new CourseRegistration(); registration.setCourse(progress.getLesson().getCourse()); registration.setStudent(progress.getStudent()); em.persist(registration); progress.setRegistration(registration);
+        em.persist(progress); em.flush();
         assertEquals(409, assertThrows(ApiException.class, () -> lessons.delete(id, l.id(), OWNER)).status().value());
         assertEquals(l.id(), lessons.get(id, l.id(), OWNER).id());
     }

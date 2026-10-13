@@ -9,6 +9,10 @@ import org.springframework.web.bind.annotation.*;
 @RestController @RequiredArgsConstructor @RequestMapping("/api/v1/student/courses")
 public class StudentCourseController {
     private final StudentCourseService courses;
+    private final com.onlinelearning.service.StudentEnrollmentService enrollment;
+    @GetMapping("/{id}/enrollment") public com.onlinelearning.service.StudentEnrollmentService.Enrollment enrollment(@PathVariable Long id, Authentication actor) {
+        return enrollment.read(id,actor.getName());
+    }
     @GetMapping public StudentCoursePage list(Authentication actor, @RequestParam(defaultValue = "") String q,
             @RequestParam(defaultValue = "newest") String sort, @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "12") int size) {
