@@ -1,0 +1,20 @@
+-- Related Unsplash cover images for local demo posts only.
+START TRANSACTION;
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-1';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-2';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-3';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-4';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1633356122544-f134324a6cee?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-5';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-6';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1558494949-ef010cbdcc31?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-7';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-8';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-9';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-10';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-11';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-12';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-13';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-14';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1515879218367-8466d910aaa4?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-15';
+UPDATE posts SET thumbnail_url='https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=1200&q=80' WHERE slug='demo-blog-16';
+COMMIT;
+SELECT COUNT(*) AS demo_posts_with_images FROM posts WHERE slug LIKE 'demo-blog-%' AND thumbnail_url IS NOT NULL;
