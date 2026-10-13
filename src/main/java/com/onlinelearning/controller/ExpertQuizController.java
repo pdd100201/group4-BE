@@ -10,6 +10,12 @@ import java.util.List;
 @RestController @RequiredArgsConstructor @RequestMapping("/api/v1/expert/courses/{courseId}/quizzes")
 public class ExpertQuizController {
     private final ExpertQuizService quizzes;
+    public record QuestionPage(List<QuestionChoice> content, long totalElements, int totalPages, int number) {}
+    @GetMapping("/question-bank") public QuestionPage questions(@PathVariable Long courseId, Authentication actor,
+        @RequestParam(defaultValue="") String search, @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="20") int size) {
+        var result = quizzes.questionBank(courseId, actor.getName(), search, page, size);
+        return new QuestionPage(result.getContent(), result.getTotalElements(), result.getTotalPages(), result.getNumber());
+    }
     @GetMapping public List<QuizResponse> list(@PathVariable Long courseId, Authentication a) { return quizzes.list(courseId, a.getName()); }
     @GetMapping("/{id}") public QuizResponse get(@PathVariable Long courseId, @PathVariable Long id, Authentication a) { return quizzes.get(courseId, id, a.getName()); }
     @PostMapping @ResponseStatus(HttpStatus.CREATED) public QuizResponse create(@PathVariable Long courseId, @Valid @RequestBody QuizRequest r, Authentication a) { return quizzes.create(courseId, a.getName(), r); }

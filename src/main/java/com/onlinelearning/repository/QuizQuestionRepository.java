@@ -5,6 +5,7 @@ import org.springframework.data.repository.query.Param;
 import java.util.*;
 public interface QuizQuestionRepository extends JpaRepository<QuizQuestion, Long> {
     List<QuizQuestion> findByQuizIdOrderByPositionAscIdAsc(Long quizId);
+    long countByQuizId(Long quizId);
     @Modifying
     @Query("delete from QuizQuestion qq where qq.quiz.id = :quizId")
     void deleteByQuizId(@Param("quizId") Long quizId);

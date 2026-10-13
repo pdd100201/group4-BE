@@ -2,6 +2,6 @@ package com.onlinelearning.repository;
 import com.onlinelearning.entity.Question;
 import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.*;
-public interface QuestionRepository extends JpaRepository<Question, Long> {
+public interface QuestionRepository extends JpaRepository<Question, Long>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Question> {
     Optional<Question> findByIdAndCourseId(Long id, Long courseId);
 }

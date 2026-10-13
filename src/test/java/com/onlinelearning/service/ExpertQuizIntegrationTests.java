@@ -33,6 +33,42 @@ class ExpertQuizIntegrationTests {
     static final String OWNER = "expert@onlinelearning.local";
     static final String STUDENT = "student@onlinelearning.local";
 
+    @Test void quizSearchIsPaginatedFilteredAndScopedToOwner() throws Exception {
+        Long id = course();
+        quizzes.create(id, OWNER, req("Search alpha", null, List.of()));
+        quizzes.create(id, OWNER, req("Search beta", null, List.of()));
+        assertEquals(2, quizzes.search(OWNER, id, "Search", true, 0, 1).getTotalElements());
+        assertEquals(1, quizzes.search(OWNER, id, "Search", true, 0, 1).getNumberOfElements());
+        assertEquals(1, quizzes.search(OWNER, id, "alpha", null, 0, 10).getTotalElements());
+        assertEquals(0, quizzes.search(STUDENT, null, "Search", null, 0, 10).getTotalElements());
+        assertEquals(2, quizzes.search(OWNER, id, "", "Java", null, 0, 10).getTotalElements());
+        assertEquals(0, quizzes.search(OWNER, id, "", "SQL", null, 0, 10).getTotalElements());
+        assertEquals(403, assertThrows(ApiException.class, () -> quizzes.search(STUDENT, id, "", null, 0, 10)).status().value());
+        mvc.perform(get("/api/v1/expert/quizzes").with(user(STUDENT).roles("STUDENT"))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/v1/expert/quizzes").with(user(OWNER).roles("EXPERT")).param("page", "-1")).andExpect(status().isBadRequest());
+    }
+
+    @Test void activeQuizRequiresSettingsAndActiveQuestions() {
+        Long id = course();
+        assertEquals(400, assertThrows(ApiException.class, () -> quizzes.create(id, OWNER,
+            new QuizRequest("Incomplete", null, null, null, true, null, List.of()))).status().value());
+        Long questionId = question(id, "Inactive");
+        em.find(Question.class, questionId).setActive(false);
+        assertEquals(400, assertThrows(ApiException.class, () -> quizzes.create(id, OWNER,
+            req("Invalid questions", null, List.of(new QuizQuestionItem(questionId, 1, 1))))).status().value());
+    }
+
+    @Test void questionPickerOnlyReturnsActiveOwnedQuestions() {
+        Long id = course(); Long other = course();
+        question(id, "Selectable question");
+        Long hidden = question(id, "Inactive question");
+        em.find(Question.class, hidden).setActive(false);
+        question(other, "Foreign question");
+        assertEquals(1, quizzes.questionBank(id, OWNER, "", 0, 20).getTotalElements());
+        assertEquals(0, quizzes.questionBank(id, OWNER, "Foreign", 0, 20).getTotalElements());
+        assertThrows(ApiException.class, () -> quizzes.questionBank(id, STUDENT, "", 0, 20));
+    }
+
     Long course() { return courses.create(OWNER, new CourseRequest("Course", "Description", "Java", BigDecimal.ZERO)).id(); }
     Long question(Long courseId, String content) {
         Question q = new Question(); q.setCourse(em.find(Course.class, courseId)); q.setContent(content);

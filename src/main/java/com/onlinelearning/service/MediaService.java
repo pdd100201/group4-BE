@@ -28,7 +28,7 @@ public class MediaService {
         User user = users.findByEmailIgnoreCase(email).orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Tài khoản không tồn tại."));
         boolean video = "LESSON_VIDEO".equals(purpose);
         Course course = null;
-        if ("COURSE_IMAGE".equals(purpose) || video) {
+        if ("COURSE_IMAGE".equals(purpose) || "QUESTION_IMAGE".equals(purpose) || video) {
             if (courseId == null || user.getRoles().stream().noneMatch(r -> "EXPERT".equals(r.getCode()))) throw new ApiException(HttpStatus.FORBIDDEN, "Chỉ Expert sở hữu khóa học được tải nội dung lên.");
             course = courses.findForUpdate(courseId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));
             if (!course.getExpert().getId().equals(user.getId())) throw new ApiException(HttpStatus.FORBIDDEN, "Khóa học không thuộc bạn.");
