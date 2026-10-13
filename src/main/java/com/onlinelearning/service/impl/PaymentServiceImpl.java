@@ -8,6 +8,7 @@ import com.onlinelearning.config.SepayConfig;
 import com.onlinelearning.dto.payment.*;
 import com.onlinelearning.entity.*;
 import com.onlinelearning.exception.ApiException;
+import com.onlinelearning.exception.PaymentExpiredException;
 import com.onlinelearning.repository.*;
 import com.onlinelearning.service.PaymentService;
 import jakarta.persistence.EntityManager;
@@ -54,7 +55,10 @@ public class PaymentServiceImpl implements PaymentService {
         if (!config.provider().equals(payment.getProvider()) || payment.getAmount().compareTo(r.getAmount()) != 0 || payment.getStatus() != PaymentStatus.PENDING)
             throw error(HttpStatus.CONFLICT, "Dang ky co thanh toan cu hoac khac moi truong. Can xu ly dang ky cu truoc khi tao dang ky moi.");
         var existing = transactions.findFirstByPaymentIdAndTypeOrderByIdDesc(payment.getId(), "SEPAY_PENDING");
-        if (existing.isPresent()) return response(r, payment, existing.get());
+        if (existing.isPresent()) {
+            expireIfNeeded(r,payment,existing.get());
+            return response(r, payment, existing.get());
+        }
         var tx = new Transaction(); tx.setPayment(payment); tx.setAmount(r.getAmount()); tx.setType("SEPAY_PENDING");
         tx.setPayload(write(new Receiver(config.getBank(), config.getAccountNumber(), config.qrAccountNumber(), config.getAccountHolder(), config.getDescriptionPrefix(), config.testMode())));
         if (tx.getPayload().length() > 255) throw error(HttpStatus.BAD_REQUEST, "Cau hinh tai khoan SePay qua dai.");
@@ -62,13 +66,42 @@ public class PaymentServiceImpl implements PaymentService {
         return response(r, payment, tx);
     }
 
-    @Transactional(readOnly = true)
     public PaymentResponse status(String email, Long id) {
-        var r = owned(student(email), id); var p = payments.findByRegistrationId(id).orElse(null);
-        var tx = p == null ? null : transactions.findFirstByPaymentIdAndTypeOrderByIdDesc(p.getId(), "SEPAY_PENDING").orElse(null);
+        var initial=owned(student(email),id);
+        courses.findForUpdate(initial.getCourse().getId()).orElseThrow();
+        var r=registrations.findForUpdate(id).orElseThrow(); em.refresh(r);
+        var p = payments.findByRegistrationId(id).orElse(null);
+        if(p!=null) em.refresh(p);
+        var tx = p == null ? null : transactions.findFirstByPaymentIdOrderByIdDesc(p.getId()).orElse(null);
+        if(tx!=null) em.refresh(tx);
+        expireIfNeeded(r,p,tx);
         return response(r, p, tx);
     }
 
+    public void expire(Long id) {
+        var initial=registrations.findById(id).orElse(null);
+        if(initial==null) return;
+        courses.findForUpdate(initial.getCourse().getId()).orElseThrow();
+        var r=registrations.findForUpdate(id).orElseThrow(); em.refresh(r);
+        var p=payments.findByRegistrationId(id).orElse(null);
+        if(p==null) return;
+        em.refresh(p);
+        var tx=transactions.findFirstByPaymentIdOrderByIdDesc(p.getId()).orElse(null);
+        if(tx!=null) em.refresh(tx);
+        expireIfNeeded(r,p,tx);
+    }
+
+    private void expireIfNeeded(CourseRegistration r,Payment p,Transaction tx) {
+        if(p==null || tx==null || p.getStatus()!=PaymentStatus.PENDING || !Set.of("SEPAY","SEPAY_TEST").contains(p.getProvider())
+            || !"SEPAY_PENDING".equals(tx.getType()) || Instant.now().isBefore(expiresAt(tx))) return;
+        p.setStatus(PaymentStatus.CANCELLED);
+        tx.setType("SEPAY_EXPIRED");
+        if(r.getStatus()==RegistrationStatus.PENDING_PAYMENT) r.setStatus(RegistrationStatus.CANCELLED);
+    }
+
+    private Instant expiresAt(Transaction tx) { return tx.getCreatedAt().plusSeconds(300); }
+
+    @Transactional(noRollbackFor=PaymentExpiredException.class)
     public void confirm(SepayWebhook event) {
         gateway.requireConfiguration();
         if (!"in".equals(event.transferType())) return;
@@ -80,7 +113,7 @@ public class PaymentServiceImpl implements PaymentService {
         if (("T".equals(match.group(1))) != config.testMode()) throw error(HttpStatus.CONFLICT, "Sai moi truong SePay.");
         Long transactionId = Long.parseLong(match.group(2));
         var found = transactions.findById(transactionId);
-        if (found.isEmpty() || !"SEPAY_PENDING".equals(found.get().getType())) return;
+        if (found.isEmpty() || !Set.of("SEPAY_PENDING","SEPAY_EXPIRED").contains(found.get().getType())) return;
         var initial = found.get(); var initialPayment = initial.getPayment();
         courses.findForUpdate(initialPayment.getRegistration().getCourse().getId()).orElseThrow();
         var r = registrations.findForUpdate(initialPayment.getRegistration().getId()).orElseThrow();
@@ -88,7 +121,8 @@ public class PaymentServiceImpl implements PaymentService {
         em.refresh(r); em.refresh(p); em.refresh(tx);
         if (payments.findByProviderReference(reference).isPresent()) return;
         if (!config.provider().equals(p.getProvider())) throw error(HttpStatus.CONFLICT, "Giao dich khong thuoc SePay dang cau hinh.");
-        if (p.getStatus() == PaymentStatus.SUCCEEDED || !"SEPAY_PENDING".equals(tx.getType())) return;
+        if (p.getStatus() == PaymentStatus.SUCCEEDED) return;
+        if (!Set.of("SEPAY_PENDING","SEPAY_EXPIRED").contains(tx.getType())) return;
         var receiver = receiver(tx);
         if (receiver.test() != config.testMode() || !receiver.bank().equalsIgnoreCase(event.gateway()) || !receiver.account().equals(event.accountNumber()) ||
                 (!receiver.qrAccount().equals(receiver.account()) && !receiver.qrAccount().equals(event.subAccount())))
@@ -100,6 +134,11 @@ public class PaymentServiceImpl implements PaymentService {
         catch (DateTimeException ex) { throw error(HttpStatus.BAD_REQUEST, "Thoi gian giao dich khong hop le."); }
         if (paidAt.isBefore(tx.getCreatedAt().minusSeconds(60)) || paidAt.isAfter(Instant.now().plusSeconds(300)))
             throw error(HttpStatus.BAD_REQUEST, "Thoi gian giao dich khong khop dang ky.");
+        expireIfNeeded(r,p,tx);
+        if("SEPAY_EXPIRED".equals(tx.getType())) throw new PaymentExpiredException();
+        if(!paidAt.isBefore(expiresAt(tx))) throw error(HttpStatus.CONFLICT,"Giao dich nam ngoai thoi han thanh toan, can doi soat thu cong.");
+        if(p.getStatus()!=PaymentStatus.PENDING || r.getStatus()!=RegistrationStatus.PENDING_PAYMENT)
+            throw error(HttpStatus.CONFLICT,"Dang ky da huy hoac khong con cho thanh toan. Can doi soat thu cong.");
         validateSnapshot(r);
         p.setStatus(PaymentStatus.SUCCEEDED); p.setProviderReference(reference);
         tx.setType("SEPAY_SUCCEEDED"); tx.setCreatedAt(paidAt); tx.setPayload(write(Map.of("eventId", event.id(), "code", code, "test", receiver.test())));
@@ -125,12 +164,14 @@ public class PaymentServiceImpl implements PaymentService {
     }
     private PaymentResponse response(CourseRegistration r, Payment p, Transaction tx) {
         var state = p == null ? PaymentStatus.PENDING : p.getStatus();
-        if (tx == null || state != PaymentStatus.PENDING) return new PaymentResponse(r.getId(), state, gateway.configured(), config.testMode(), null, null, null, null, null, r.getAmount());
+        Instant deadline=tx!=null && Set.of("SEPAY_PENDING","SEPAY_EXPIRED").contains(tx.getType())?expiresAt(tx):null;
+        boolean expired=tx!=null && "SEPAY_EXPIRED".equals(tx.getType());
+        if (tx == null || state != PaymentStatus.PENDING || !"SEPAY_PENDING".equals(tx.getType())) return new PaymentResponse(r.getId(), state, gateway.configured(), config.testMode(), null, null, null, null, null, r.getAmount(),deadline,Instant.now(),expired);
         var receiver = receiver(tx);
         String code = "OLS" + (receiver.test() ? "T" : "L") + tx.getId();
         String description = (receiver.prefix().isBlank() ? "" : receiver.prefix() + " ") + code;
         return new PaymentResponse(r.getId(), state, gateway.configured(), receiver.test(), gateway.qrUrl(receiver.bank(), receiver.qrAccount(), tx.getAmount(), description),
-                receiver.bank(), receiver.qrAccount(), receiver.holder(), description, tx.getAmount());
+                receiver.bank(), receiver.qrAccount(), receiver.holder(), description, tx.getAmount(),deadline,Instant.now(),false);
     }
     private void retireExpiredUnpaidProvider(Payment payment) {
         if (!"VNPAY".equals(payment.getProvider()) || payment.getStatus() != PaymentStatus.PENDING || payment.getProviderReference() != null) return;

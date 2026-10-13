@@ -55,11 +55,33 @@ when no longer needed. No user secret was read, displayed or overwritten.
    and content. Test Mode supports amounts from 1,000 to 499,000,000 VND.
 5. SePay sends the webhook. The website polls server-side status and shows test
    confirmation. Successful test registration can be used for local access demos,
-   but `SEPAY_TEST` payments are excluded from monetary revenue reports.
+   and confirmed `SEPAY_TEST` payments are included in this project's demo revenue
+   reports and CSV exports, as requested. Report totals therefore include simulated
+   payments and are not a statement of real bank receipts.
 6. Wrong key/account/amount never grants access. Replay the same webhook to check
    idempotency: validity and successful Payment must not change.
 
 DO NOT scan Test Mode QR with a real bank app or transfer real money for this demo.
+
+### Five-minute payment deadline
+
+The payment deadline is five minutes after the first QR is created, based on BE
+time. Reusing a QR or refreshing the page does not extend it. Status reads and
+payment confirmation enforce the deadline; a background sweep runs every 15
+seconds (100 overdue requests per batch), including when the browser is closed.
+An overdue pending SePay payment becomes `CANCELLED`, its attempt is retained as
+`SEPAY_EXPIRED`, and its pending registration becomes `CANCELLED` without access.
+The user can register again, creating a new registration and payment code.
+Already confirmed payments are not expired. Existing old pending SePay QRs also
+use their original creation time and will expire on the next check/sweep.
+
+The frontend displays a server-aligned countdown and removes the QR at zero.
+The bank-transfer QR itself cannot be revoked at the bank. A transfer arriving
+after the deadline, including a delayed webhook after cancellation, is rejected
+for automatic activation with HTTP 409 and needs manual reconciliation; no
+automatic refund is implemented. Do not pay using an expired code or create a
+second payment if money was already transferred but confirmation is missing.
+
 Test QR data must come from the test account. A QR is not a payment confirmation.
 The website has no button that allows a Student to mark their own payment paid.
 

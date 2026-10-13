@@ -7,6 +7,7 @@ import java.util.*;
 public final class TransactionOutcome {
     private static final Map<String, PaymentStatus> STATUSES = Map.ofEntries(
             Map.entry("SEPAY_PENDING", PaymentStatus.PENDING), Map.entry("SEPAY_SUCCEEDED", PaymentStatus.SUCCEEDED),
+            Map.entry("SEPAY_EXPIRED", PaymentStatus.CANCELLED),
             Map.entry("VNPAY_PENDING", PaymentStatus.PENDING), Map.entry("VNPAY_EXPIRED", PaymentStatus.FAILED),
             Map.entry("VNPAY_SUCCEEDED", PaymentStatus.SUCCEEDED), Map.entry("VNPAY_FAILED", PaymentStatus.FAILED),
             Map.entry("VNPAY_CANCELLED", PaymentStatus.CANCELLED));

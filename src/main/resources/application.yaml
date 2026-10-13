@@ -35,9 +35,9 @@ app:
   cloudinary:
     # Supply credentials using environment variables or the ignored backend .env file.
     # Never commit actual Cloudinary API keys/secrets as YAML fallback values.
-    cloud-name: ${CLOUDINARY_CLOUD_NAME:}
-    api-key: ${CLOUDINARY_API_KEY:}
-    api-secret: ${CLOUDINARY_API_SECRET:}
+    cloud-name: ${CLOUDINARY_CLOUD_NAME:oghp70mu}
+    api-key: ${CLOUDINARY_API_KEY:381497429566822}
+    api-secret: ${CLOUDINARY_API_SECRET:vx6CfSVVcq-Xhru30JMe6jQWVYQ}
     folder: ${CLOUDINARY_FOLDER:online-learning}
   jwt:
     secret: ${JWT_SECRET:change-this-to-a-base64-secret-with-at-least-256-bits}

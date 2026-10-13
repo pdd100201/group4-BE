@@ -21,6 +21,7 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
     private final CourseRegistrationRepository registrations;
     private final UserRepository users;
     private final Validator validator;
+    private final com.onlinelearning.service.PaymentService payments;
 
     public StudentRegistrationResponse register(String email,RegistrationRequest request) {
         User student=student(email);
@@ -31,7 +32,11 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
         if(registrations.countCurrentAccess(student.getId(),course.getId(),Instant.now())>0)
             throw new ApiException(HttpStatus.CONFLICT,"Bạn đang có quyền học khóa học này.");
         var pending=registrations.findFirstByStudentIdAndCourseIdAndStatusOrderByIdDesc(student.getId(),course.getId(),RegistrationStatus.PENDING_PAYMENT);
-        if(pending.isPresent()) return StudentRegistrationResponse.from(pending.get(),true);
+        if(pending.isPresent()) {
+            payments.expire(pending.get().getId());
+            if(pending.get().getStatus()==RegistrationStatus.PENDING_PAYMENT)
+                return StudentRegistrationResponse.from(pending.get(),true);
+        }
         CoursePackage p=packages.findById(request.packageId()).orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Không tìm thấy gói học."));
         if(!p.getCourse().getId().equals(course.getId()) || !p.isActive()) throw new ApiException(HttpStatus.BAD_REQUEST,"Gói học không thuộc khóa học hoặc không còn khả dụng.");
         var price=CoursePackageResponse.from(p);

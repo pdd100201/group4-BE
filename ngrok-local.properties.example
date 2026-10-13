@@ -1,0 +1,5 @@
+# Copy to ngrok-local.properties only on the machine hosting the shared backend.
+# ngrok must already be installed and authenticated on that machine.
+ngrok.enabled=true
+ngrok.executable=ngrok
+ngrok.public-url=https://serotonin-bonehead-viscous.ngrok-free.dev

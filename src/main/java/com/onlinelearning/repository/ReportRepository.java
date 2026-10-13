@@ -31,7 +31,8 @@ public class ReportRepository {
         if (courseId != null) params.put("courseId", courseId);
         String registrationDates = dates("r", from, until, params);
         String paymentDates = FIRST_TRANSACTION + dates("t", from, until, params) + ")";
-        String payments = " from Payment p join p.registration r join r.course c where p.status = :success and (p.provider is null or p.provider <> 'SEPAY_TEST')"
+        // Demo reports include confirmed test payments as requested; pending/failed never count.
+        String payments = " from Payment p join p.registration r join r.course c where p.status = :success"
                 + " and " + paymentDates + course;
         String query;
         String countQuery;
@@ -56,7 +57,7 @@ public class ReportRepository {
                 countQuery = "select count(distinct c.id)" + payments;
             } else {
                 String correlatedPayments = "select coalesce(sum(p.amount), 0) from Payment p "
-                        + "where p.registration.course = c and p.status = :success and (p.provider is null or p.provider <> 'SEPAY_TEST') and " + paymentDates;
+                        + "where p.registration.course = c and p.status = :success and " + paymentDates;
                 query = "select new " + DTO + "(c.id, c.title, c.status, "
                         + "(select count(r.id) from CourseRegistration r where r.course = c"
                         + registrationDates + "), (" + correlatedPayments + "))"

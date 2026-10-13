@@ -6,4 +6,5 @@ public interface PaymentService {
     PaymentResponse initiate(String email, Long registrationId);
     PaymentResponse status(String email, Long registrationId);
     void confirm(SepayWebhook webhook);
+    void expire(Long registrationId);
 }
