@@ -4,4 +4,5 @@ package com.onlinelearning.api;
 public interface EmailGateway {
     void sendAccountVerification(String recipient, String verificationUrl);
     void sendPasswordReset(String recipient, String resetUrl);
+    void sendAdminAccountInvitation(String recipient, String setupUrl);
 }

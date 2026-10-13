@@ -26,6 +26,13 @@ public class SmtpEmailGateway implements EmailGateway {
                 "Open this link to reset your password: " + resetUrl);
     }
 
+    @Override
+    public void sendAdminAccountInvitation(String recipient, String setupUrl) {
+        send(recipient, "Online Learning - your account is ready",
+                "An administrator created an account for you. Open this one-time link to set your password: "
+                        + setupUrl);
+    }
+
     private void send(String recipient, String subject, String body) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(sender);
