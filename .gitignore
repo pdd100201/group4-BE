@@ -37,3 +37,4 @@ build/
 vnpay-local.properties
 sepay-local.properties
 ngrok-local.properties
+uploads/chat/
