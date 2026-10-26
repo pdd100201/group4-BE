@@ -13,4 +13,9 @@ public class ChatAttachment extends BaseEntity {
     @Column(nullable = false, length = 80) private String contentType;
     @Column(nullable = false) private long bytes;
     @Column(nullable = false) private Instant createdAt;
+    // Nullable for legacy disk uploads until the resumable migration has completed.
+    @Column(length = 255) private String cloudPublicId;
+    @Column(length = 10) private String cloudResourceType;
+    @Column(length = 20) private String cloudFormat;
+    @Column(length = 20) private String cloudDeliveryType;
 }
