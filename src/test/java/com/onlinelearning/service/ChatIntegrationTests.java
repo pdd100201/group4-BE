@@ -3,9 +3,12 @@ package com.onlinelearning.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.onlinelearning.config.JwtTokenProvider;
+import com.onlinelearning.api.ChatMediaStorage;
+import com.onlinelearning.api.MediaStorage.StoredMedia;
 import com.onlinelearning.entity.*;
 import com.onlinelearning.repository.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,12 +17,17 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.core.io.ByteArrayResource;
+import java.nio.file.*;
 import java.net.URI;
 import java.net.http.*;
 import java.time.*;
 import java.util.*;
 import java.util.concurrent.*;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -36,8 +44,21 @@ class ChatIntegrationTests {
     @Autowired ChatMessageRepository messages;
     @Autowired JwtTokenProvider jwt;
     @Autowired ChatService chat;
+    @MockitoBean ChatMediaStorage storage;
+    @Autowired ChatAttachmentRepository attachments;
     @LocalServerPort int port;
     record Actor(User user, AuthSession session, String token) { }
+    private final Map<String, byte[]> cloudFiles = new ConcurrentHashMap<>();
+
+    @BeforeEach void privateCloudinaryFake() {
+        cloudFiles.clear();
+        when(storage.upload(any(Path.class), anyString(), anyBoolean())).thenAnswer(call -> {
+            String id = "chat-test/" + UUID.randomUUID(); byte[] bytes = Files.readAllBytes(call.getArgument(0));
+            cloudFiles.put(id, bytes); boolean video = call.getArgument(2);
+            return new StoredMedia(id, video ? "video" : "image", "authenticated", video ? "mp4" : "png", "https://cloudinary.invalid/private", bytes.length);
+        });
+        when(storage.download(anyString(), anyString(), anyString())).thenAnswer(call -> new ByteArrayResource(cloudFiles.get(call.getArgument(0))));
+    }
 
     private Actor actor(String role) {
         User user = new User(); user.setEmail("bang" + UUID.randomUUID() + "@gmail.com");
@@ -251,5 +272,20 @@ class ChatIntegrationTests {
         long id = upload(owner, null, "fake-extension.mp4", "text/html", image());
         mvc.perform(get("/api/v1/chat/attachments/" + id).header("Authorization", "Bearer " + owner.token()))
             .andExpect(status().isOk()).andExpect(header().string("Content-Type", "image/png"));
+        assertNotNull(attachments.findById(id).orElseThrow().getCloudPublicId());
+        assertEquals("authenticated", attachments.findById(id).orElseThrow().getCloudDeliveryType());
+    }
+
+    @Test void cloudinaryFailureDoesNotSaveAnAttachmentOrLeaveTemporaryFile() throws Exception {
+        Actor owner = actor("STUDENT"); long before = attachments.count();
+        java.util.concurrent.atomic.AtomicReference<Path> temporary = new java.util.concurrent.atomic.AtomicReference<>();
+        when(storage.upload(any(Path.class), anyString(), anyBoolean())).thenAnswer(call -> {
+            temporary.set(call.getArgument(0));
+            throw new com.onlinelearning.exception.ApiException(org.springframework.http.HttpStatus.BAD_GATEWAY, "Cloudinary unavailable");
+        });
+        mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart("/api/v1/chat/attachments")
+            .file(new org.springframework.mock.web.MockMultipartFile("file", "image.png", "image/png", image()))
+            .header("Authorization", "Bearer " + owner.token())).andExpect(status().isBadGateway());
+        assertEquals(before, attachments.count()); assertFalse(Files.exists(temporary.get()));
     }
 }
