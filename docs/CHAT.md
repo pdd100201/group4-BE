@@ -61,3 +61,11 @@ Socket errors contain a safe message and optional `clientMessageId`; no SQL deta
 Frontend checks: `npm exec tsc -- --noEmit`, `npm run build`, `npm run lint`. The repository's existing ESLint configuration targets JavaScript/JSX only; TypeScript chat files are checked by the TypeScript compiler.
 
 Manual check: sign in, choose **Trò chuyện**, send a message in **Phòng chat chung**, select a user for private chat, reload and check retained history. A second signed-in user receives community messages and messages addressed to them. A third user cannot see the private exchange. Stop/restart the backend to verify reconnection and draft retention.
+
+## Conversation search
+- `GET /api/v1/chat/messages/search?query=...&peerId=...&before=...` searches stored message text in the selected conversation. Omit peerId for the community room.
+- The authenticated account determines private-conversation scope; results never include other users' private threads. Newest first, 50 results per cursor page.
+- Keywords are literal, case-insensitive substrings (1–100 characters); `%`, `_`, and `!` are escaped.
+- Contact suggestions match full names only. The frontend debounces typing by 250 ms and shows only individuals while filtering.
+- The EduLearn E logo toggles the contact list; the conversation header search button opens message search with highlighted matches.
+- Validation: ChatIntegrationTests 19/19 passed, frontend TypeScript and production build passed; localhost UI search verified.

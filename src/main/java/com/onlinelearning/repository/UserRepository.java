@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, Long> {
-    @Query("select u from User u where u.enabled = true and u.blocked = false and u.id <> :me and lower(u.fullName) like lower(concat('%', :query, '%'))")
+    @Query("select u from User u where u.enabled = true and u.blocked = false and u.id <> :me and lower(u.fullName) like lower(concat('%', :query, '%')) escape '!'")
     Page<User> chatDirectory(@Param("me") Long me, @Param("query") String query, Pageable pageable);
     Optional<User> findByEmailIgnoreCase(String email);
     Optional<User> findByGoogleSubject(String googleSubject);

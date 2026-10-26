@@ -22,7 +22,7 @@ public class ChatService {
     @Transactional(readOnly = true)
     public Page<ChatUserResponse> directory(String query, int page) {
         if (page < 0 || query.length() > 100) throw badRequest("Tìm kiếm không hợp lệ.");
-        return users.chatDirectory(identity.current().getId(), query.trim(),
+        return users.chatDirectory(identity.current().getId(), escapeSearch(query.trim()),
             PageRequest.of(page, 30, Sort.by("fullName").ascending().and(Sort.by("id"))))
             .map(ChatUserResponse::from);
     }
@@ -37,6 +37,26 @@ public class ChatService {
         var rows = peerId == null ? messages.community(before, page) : messages.privateHistory(me, peerId, before, page);
         // IDs provide stable history pagination, including messages with identical timestamps.
         return rows.stream().map(ChatMessageResponse::from).sorted(Comparator.comparing(ChatMessageResponse::id)).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ChatMessageResponse> search(Long peerId, String query, Long before) {
+        Long me = identity.current().getId();
+        if (query == null || query.isBlank() || query.length() > 100)
+            throw badRequest("Từ khóa phải có từ 1 đến 100 ký tự.");
+        if (before != null && before <= 0) throw badRequest("Mốc tin nhắn không hợp lệ.");
+        if (peerId != null && (peerId <= 0 || peerId.equals(me) || !users.existsById(peerId)))
+            throw badRequest("Người nhận không hợp lệ.");
+        // Escape LIKE metacharacters: user input is a literal substring, not a database pattern.
+        String pattern = "%" + escapeSearch(query.trim()) + "%";
+        var page = PageRequest.of(0, 50);
+        var rows = peerId == null ? messages.searchCommunity(pattern, before, page)
+            : messages.searchPrivate(me, peerId, pattern, before, page);
+        return rows.stream().map(ChatMessageResponse::from).toList();
+    }
+
+    private static String escapeSearch(String value) {
+        return value.replace("!", "!!").replace("%", "!%").replace("_", "!_");
     }
 
     @Transactional

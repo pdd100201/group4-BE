@@ -69,6 +69,45 @@ class ChatIntegrationTests {
         session = sessions.saveAndFlush(session);
         return new Actor(user, session, jwt.accessToken(user.getEmail(), session.getSessionId(), List.of()));
     }
+    @Test
+    void messageSearchIsPrivateLiteralAndPaginatesBeyondLoadedHistory() throws Exception {
+        Actor a = actor("STUDENT"), b = actor("EXPERT"), outsider = actor("ADMIN");
+        String keyword = "search-" + UUID.randomUUID();
+        for (int n = 0; n < 52; n++) chat.send(a.user().getId(), b.user().getId(), keyword + " " + n, UUID.randomUUID().toString());
+        chat.send(outsider.user().getId(), b.user().getId(), keyword + " secret", UUID.randomUUID().toString());
+        chat.send(a.user().getId(), null, keyword + " public", UUID.randomUUID().toString());
+        String endpoint = "/api/v1/chat/messages/search";
+        var first = json.readTree(mvc.perform(get(endpoint).param("peerId", b.user().getId().toString())
+            .param("query", keyword.toUpperCase()).header("Authorization", "Bearer " + a.token()))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString());
+        assertEquals(50, first.size()); assertFalse(first.toString().contains("secret")); assertFalse(first.toString().contains("public"));
+        mvc.perform(get(endpoint).param("peerId", b.user().getId().toString()).param("query", keyword)
+            .param("before", first.get(49).path("id").asText()).header("Authorization", "Bearer " + a.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+        mvc.perform(get(endpoint).param("query", keyword).header("Authorization", "Bearer " + a.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        chat.send(a.user().getId(), b.user().getId(), keyword + " 100%_!", UUID.randomUUID().toString());
+        mvc.perform(get(endpoint).param("peerId", b.user().getId().toString()).param("query", "%_!")
+            .header("Authorization", "Bearer " + a.token())).andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        mvc.perform(get(endpoint).param("query", " ").header("Authorization", "Bearer " + a.token())).andExpect(status().isBadRequest());
+        mvc.perform(get(endpoint).param("query", "x")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void directoryMatchesOnlyNamesAndTreatsWildcardsLiterally() throws Exception {
+        Actor a = actor("STUDENT"), b = actor("EXPERT");
+        String name = "Bang-" + UUID.randomUUID() + "%_!";
+        b.user().setFullName(name); users.saveAndFlush(b.user());
+        mvc.perform(get("/api/v1/chat/users").param("query", name.toUpperCase()).header("Authorization", "Bearer " + a.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(1))
+            .andExpect(jsonPath("$.content[0].id").value(b.user().getId()));
+        mvc.perform(get("/api/v1/chat/users").param("query", b.user().getEmail()).header("Authorization", "Bearer " + a.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(0));
+        b.user().setBlocked(true); users.saveAndFlush(b.user());
+        mvc.perform(get("/api/v1/chat/users").param("query", name).header("Authorization", "Bearer " + a.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(0));
+    }
+
     private final class Socket implements WebSocket.Listener, AutoCloseable {
         final BlockingQueue<JsonNode> frames = new LinkedBlockingQueue<>();
         final CompletableFuture<Integer> closed = new CompletableFuture<>();

@@ -18,4 +18,10 @@ public class ChatController {
     public List<ChatMessageResponse> messages(@RequestParam(required = false) Long peerId, @RequestParam(required = false) Long before) {
         return service.history(peerId, before);
     }
+    @GetMapping("/messages/search")
+    public List<ChatMessageResponse> search(@RequestParam(required = false) Long peerId,
+                                           @RequestParam String query,
+                                           @RequestParam(required = false) Long before) {
+        return service.search(peerId, query, before);
+    }
 }
