@@ -19,6 +19,10 @@ public class ManagerPostController {
     @PutMapping("/{id}") public ManagedPostResponse update(@PathVariable Long id, @Valid @RequestBody PostRequest request, Authentication actor) {
         return posts.update(id, actor.getName(), request);
     }
+    @PatchMapping("/{id}/review") public ManagedPostResponse review(@PathVariable Long id,
+        @Valid @RequestBody PostReviewRequest request, Authentication actor) {
+        return posts.review(id, actor.getName(), request.decision());
+    }
     @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id, Authentication actor) { posts.delete(id, actor.getName()); }
 }

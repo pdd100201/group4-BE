@@ -49,6 +49,25 @@ public class ManagerPostService {
         post.setDeleted(true); post.setPublished(false); post.setUpdatedAt(Instant.now());
         record(actor, post, "DELETE_POST");
     }
+    @Transactional public ManagedPostResponse review(Long id, String email, PostReviewRequest.Decision decision) {
+        User actor = actors.require(email, "MANAGER");
+        if (decision == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Quyết định kiểm duyệt không hợp lệ.");
+        Post post = lock(id);
+        if (post.getStatus() != PostStatus.PENDING_REVIEW)
+            throw new ApiException(HttpStatus.CONFLICT, "Bài viết không còn ở trạng thái chờ duyệt.");
+        if (decision == PostReviewRequest.Decision.APPROVE) {
+            if (post.getCategory() == null || post.getCategory().isBlank() || post.getSummary() == null
+                || post.getSummary().isBlank() || post.getThumbnailUrl() == null || post.getThumbnailUrl().isBlank())
+                throw new ApiException(HttpStatus.CONFLICT, "Bài viết cần danh mục, tóm tắt và ảnh đại diện trước khi duyệt.");
+            post.setStatus(PostStatus.PUBLISHED); post.setPublished(true); post.setPublishedAt(Instant.now());
+            record(actor, post, "APPROVE_POST");
+        } else {
+            post.setStatus(PostStatus.REJECTED); post.setPublished(false); post.setPublishedAt(null);
+            record(actor, post, "REJECT_POST");
+        }
+        post.setUpdatedAt(Instant.now());
+        return ManagedPostResponse.from(post);
+    }
     private Post lock(Long id) {
         if (id == null || id <= 0) throw new ApiException(HttpStatus.BAD_REQUEST, "Mã bài viết không hợp lệ.");
         return posts.findForUpdate(id).filter(p -> !p.isDeleted()).orElseThrow(() -> unavailable());
@@ -66,7 +85,16 @@ public class ManagerPostService {
         if (Boolean.TRUE.equals(r.published()) && (post.getCategory() == null || post.getCategory().isBlank()
             || post.getSummary() == null || post.getSummary().isBlank() || post.getThumbnailUrl() == null || post.getThumbnailUrl().isBlank()))
             throw new ApiException(HttpStatus.CONFLICT, "Cần danh mục, tóm tắt và ảnh trước khi xuất bản bài viết.");
-        post.setPublished(Boolean.TRUE.equals(r.published())); post.setUpdatedAt(Instant.now());
+        boolean published = Boolean.TRUE.equals(r.published());
+        post.setPublished(published);
+        if (published) {
+            post.setStatus(PostStatus.PUBLISHED);
+            if (post.getPublishedAt() == null) post.setPublishedAt(Instant.now());
+        } else {
+            if (post.getStatus() != PostStatus.PENDING_REVIEW) post.setStatus(PostStatus.DRAFT);
+            post.setPublishedAt(null);
+        }
+        post.setUpdatedAt(Instant.now());
     }
     private void record(User actor, Post post, String action) {
         AuditLog entry = new AuditLog(); entry.setActor(actor); entry.setTargetType("POST");
