@@ -19,6 +19,7 @@ import java.util.List;
 public class ManagerCourseService {
     private final CourseRepository courses;
     private final EntityManager em;
+    private final com.onlinelearning.repository.CoursePackageRepository packages;
 
     public Page<ManagerCourseResponse> list(String search, String category, CourseStatus status, int page, int size) {
         Specification<Course> spec = (root, query, cb) -> cb.conjunction();
@@ -28,8 +29,10 @@ public class ManagerCourseService {
         }
         if (category != null && !category.isBlank()) spec = spec.and((root, query, cb) -> cb.equal(root.get("category"), category.trim()));
         if (status != null) spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
-        return courses.findAll(spec, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id")))
-            .map(c -> response(c, List.of(), List.of()));
+        var result = courses.findAll(spec, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id")));
+        var prices = result.isEmpty() ? java.util.Map.<Long, java.math.BigDecimal>of() : CourseDisplayPrices.from(
+            packages.findByCourseIdInAndActiveTrue(result.getContent().stream().map(Course::getId).toList()));
+        return result.map(c -> response(c, List.of(), List.of(), prices.get(c.getId())));
     }
 
     public ManagerCourseResponse get(Long id) {
@@ -47,10 +50,10 @@ public class ManagerCourseService {
                         question.getOptions().stream().sorted(Comparator.comparing(QuestionOption::getId))
                             .map(o -> new OptionPreview(o.getId(), o.getContent(), o.isCorrect())).toList());
                 }).toList())).toList();
-        return response(c, lessons, quizzes);
+        return response(c, lessons, quizzes, CourseDisplayPrices.from(packages.findByCourseIdAndActiveTrueOrderByIdAsc(id)).get(id));
     }
-    private ManagerCourseResponse response(Course c, List<LessonPreview> lessons, List<QuizPreview> quizzes) {
-        return new ManagerCourseResponse(c.getId(), c.getTitle(), c.getDescription(), c.getCategory(), c.getPrice(), c.getStatus(),
+    private ManagerCourseResponse response(Course c, List<LessonPreview> lessons, List<QuizPreview> quizzes, java.math.BigDecimal price) {
+        return new ManagerCourseResponse(c.getId(), c.getTitle(), c.getDescription(), c.getCategory(), price, c.getStatus(),
             c.getExpert().getFullName(), c.getRejectionReason(), c.getReviewedBy() == null ? null : c.getReviewedBy().getFullName(), lessons, quizzes, c.getThumbnail() == null ? null : c.getThumbnail().getSecureUrl());
     }
 }

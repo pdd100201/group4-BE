@@ -20,6 +20,7 @@ public class ExpertCourseService {
     private final AuditLogRepository auditLogs;
     private final EntityManager entityManager;
     private final MediaService media;
+    private final CoursePackageRepository packages;
 
     @Transactional(readOnly=true)
     public Page<ExpertCourseResponse> list(String email, String search, String category, CourseStatus status, int page, int size) {
@@ -31,7 +32,10 @@ public class ExpertCourseService {
         }
         if (category != null && !category.isBlank()) spec = spec.and((root, query, cb) -> cb.equal(root.get("category"), category.trim()));
         if (status != null) spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
-        return courses.findAll(spec, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"))).map(ExpertCourseResponse::from);
+        var result = courses.findAll(spec, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id")));
+        var prices = result.isEmpty() ? java.util.Map.<Long, java.math.BigDecimal>of() : CourseDisplayPrices.from(
+            packages.findByCourseIdInAndActiveTrue(result.getContent().stream().map(Course::getId).toList()));
+        return result.map(c -> ExpertCourseResponse.from(c, prices.get(c.getId())));
     }
 
     @Transactional(readOnly=true)
