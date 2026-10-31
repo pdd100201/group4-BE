@@ -10,6 +10,7 @@ public class CourseRegistration extends BaseEntity {
  private Instant validUntil;
  private String note;
  private Instant createdAt;
+ @Column(name="updated_at") private Instant updatedAt;
  private String packageNameSnapshot;
  private BigDecimal priceSnapshot;
  private BigDecimal discountSnapshot;
@@ -22,5 +23,10 @@ public class CourseRegistration extends BaseEntity {
  private String studentNameSnapshot;
  private String studentEmailSnapshot;
  private String studentPhoneSnapshot;
- @PrePersist void recordCreationTime() { if (createdAt == null) createdAt = Instant.now(); }
+ @PrePersist void recordCreationTime() {
+  Instant now=Instant.now();
+  if (createdAt == null) createdAt=now;
+  updatedAt=now;
+ }
+ @PreUpdate void recordUpdateTime() { updatedAt=Instant.now(); }
 }
