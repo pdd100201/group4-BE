@@ -394,6 +394,7 @@ class CommentServiceUnitTests {
         post.setId(id);
         post.setTitle("Public post");
         post.setPublished(true);
+        post.setStatus(com.onlinelearning.entity.PostStatus.PUBLISHED);
         post.setDeleted(false);
         return post;
     }

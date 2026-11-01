@@ -64,7 +64,7 @@ class ManagerPostIntegrationTests {
         assertThat(audit.findAll()).anyMatch(a -> "UPDATE_POST".equals(a.getAction()));
     }
     @Test void uc23SoftDeletesAndRetainsReferencedCommentsAndAudit() throws Exception {
-        Post p = draft(); p.setPublished(true); posts.flush();
+        Post p = draft(); p.setPublished(true); p.setStatus(PostStatus.PUBLISHED); posts.flush();
         PostComment c = new PostComment(); c.setPost(p); c.setAuthor(users.findByEmailIgnoreCase("student@onlinelearning.local").orElseThrow()); c.setContent("Retained"); em.persist(c); em.flush();
         mvc.perform(delete("/api/v1/manager/posts/" + p.getId()).with(user(MANAGER).roles("MANAGER"))).andExpect(status().isNoContent());
         assertThat(posts.findById(p.getId()).orElseThrow().isDeleted()).isTrue();

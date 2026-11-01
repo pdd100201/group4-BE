@@ -30,11 +30,11 @@ public class CommentController {
     public CommentResponse moderationDetail(@PathVariable Long postId, @PathVariable Long id, Authentication actor) {
         return comments.moderationDetail(postId, id, actor.getName());
     }
-    @PostMapping("/student/posts/{postId}/comments") @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping({"/student/posts/{postId}/comments", "/expert/posts/{postId}/comments", "/manager/posts/{postId}/comments", "/admin/posts/{postId}/comments"}) @ResponseStatus(HttpStatus.CREATED)
     public CommentResponse create(@PathVariable Long postId, @Valid @RequestBody CommentRequest request, Authentication actor) {
         return comments.create(postId, actor.getName(), request);
     }
-    @PutMapping("/student/comments/{id}")
+    @PutMapping({"/student/comments/{id}", "/expert/comments/{id}", "/manager/comments/{id}", "/admin/comments/{id}"})
     public CommentResponse update(@PathVariable Long id, @Valid @RequestBody CommentRequest request, Authentication actor) {
         return comments.update(id, actor.getName(), request);
     }

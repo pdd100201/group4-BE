@@ -1,6 +1,7 @@
 package com.onlinelearning.service;
 
 import com.onlinelearning.entity.Post;
+import com.onlinelearning.entity.PostStatus;
 import com.onlinelearning.repository.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +23,8 @@ class PublicPostIntegrationTests {
     private Post post(String title, String category, boolean published, boolean deleted) {
         Post p = new Post(); p.setAuthor(users.findByEmailIgnoreCase("manager@onlinelearning.local").orElseThrow());
         p.setTitle(title); p.setCategory(category); p.setContent("Nội dung " + title); p.setSummary("Tóm tắt");
-        p.setPublished(published); p.setDeleted(deleted); p.setUpdatedAt(Instant.parse("2026-10-11T10:00:00Z"));
+        p.setPublished(published); p.setStatus(published ? PostStatus.PUBLISHED : PostStatus.DRAFT);
+        p.setDeleted(deleted); p.setUpdatedAt(Instant.parse("2026-10-11T10:00:00Z"));
         return posts.saveAndFlush(p);
     }
     @Test void homeAndPublicReadsNeverExposeDraftOrDeletedEvenThroughDirectId() throws Exception {

@@ -2,6 +2,7 @@ package com.onlinelearning.service;
 
 import com.onlinelearning.dto.blog.*;
 import com.onlinelearning.entity.Post;
+import com.onlinelearning.entity.PostStatus;
 import com.onlinelearning.exception.ApiException;
 import com.onlinelearning.repository.PostRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,8 @@ public class PublicPostService {
         Specification<Post> spec = (root, query, cb) -> {
             // Fetch the display author in the page query without changing the count query.
             if (query != null && query.getResultType() != Long.class) root.fetch("author");
-            return cb.and(cb.isTrue(root.get("published")), cb.isFalse(root.get("deleted")));
+            return cb.and(cb.isTrue(root.get("published")), cb.equal(root.get("status"), PostStatus.PUBLISHED),
+                cb.isFalse(root.get("deleted")));
         };
         if (search != null && !search.isBlank()) {
             String pattern = "%" + search.trim().toLowerCase(java.util.Locale.ROOT)
@@ -35,11 +37,11 @@ public class PublicPostService {
     }
 
     public PostDetailResponse detail(Long id) { return PostDetailResponse.from(visible(id)); }
-    public List<String> categories() { return posts.publicCategories(); }
+    public List<String> categories() { return posts.publicCategories(PostStatus.PUBLISHED); }
 
     public Post visible(Long id) {
         if (id == null || id <= 0) throw new ApiException(HttpStatus.BAD_REQUEST, "Mã bài viết không hợp lệ.");
-        return posts.findByIdAndPublishedTrueAndDeletedFalse(id)
+        return posts.findByIdAndPublishedTrueAndDeletedFalseAndStatus(id, PostStatus.PUBLISHED)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Bài viết không tồn tại hoặc không còn hiển thị."));
     }
 }

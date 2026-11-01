@@ -42,8 +42,12 @@ public class CommentService {
         if (status == CommentStatus.DELETED) throw error(HttpStatus.BAD_REQUEST, "Bình luận đã xóa không nằm trong danh sách moderation.");
         return BlogPage.from(comments.findAll((root, query, cb) -> {
             if (query != null && query.getResultType() != Long.class) root.fetch("author");
-            return cb.and(cb.equal(root.get("post").get("id"), postId), status == null
-                ? cb.notEqual(root.get("status"), CommentStatus.DELETED) : cb.equal(root.get("status"), status));
+            var statusFilter = status == null
+                ? cb.notEqual(root.get("status"), CommentStatus.DELETED)
+                : status == CommentStatus.HIDDEN
+                    ? cb.or(cb.equal(root.get("status"), CommentStatus.HIDDEN), cb.equal(root.get("status"), CommentStatus.DISABLED))
+                    : cb.equal(root.get("status"), status);
+            return cb.and(cb.equal(root.get("post").get("id"), postId), statusFilter);
         }, PageRequest.of(page, size, Sort.by(Sort.Direction.ASC, "id"))).map(c -> CommentResponse.from(c, actor)));
     }
     public CommentResponse moderationDetail(Long postId, Long id, String email) {
@@ -53,20 +57,20 @@ public class CommentService {
         return CommentResponse.from(c, actor);
     }
     @Transactional public CommentResponse create(Long postId, String email, CommentRequest request) {
-        User student = actors.require(email, "STUDENT");
+        User author = actors.require(email, "STUDENT", "EXPERT", "MANAGER", "ADMIN");
         Post post = visibleLocked(postId);
-        PostComment c = new PostComment(); c.setPost(post); c.setAuthor(student); c.setContent(content(request));
-        comments.saveAndFlush(c); record(student, c, "CREATE_COMMENT"); return CommentResponse.from(c, student);
+        PostComment c = new PostComment(); c.setPost(post); c.setAuthor(author); c.setContent(content(request));
+        comments.saveAndFlush(c); record(author, c, "CREATE_COMMENT"); return CommentResponse.from(c, author);
     }
     @Transactional public CommentResponse update(Long id, String email, CommentRequest request) {
-        User student = actors.require(email, "STUDENT");
+        User author = actors.require(email, "STUDENT", "EXPERT", "MANAGER", "ADMIN");
         PostComment c = locked(id);
-        if (!c.getAuthor().getId().equals(student.getId())) throw error(HttpStatus.FORBIDDEN, "Bạn chỉ được sửa bình luận của mình.");
+        if (!c.getAuthor().getId().equals(author.getId())) throw error(HttpStatus.FORBIDDEN, "Bạn chỉ được sửa bình luận của mình.");
         requireEditable(c); c.setContent(content(request)); c.setUpdatedAt(Instant.now());
-        record(student, c, "UPDATE_COMMENT"); return CommentResponse.from(c, student);
+        record(author, c, "UPDATE_COMMENT"); return CommentResponse.from(c, author);
     }
     @Transactional public void delete(Long id, String email) {
-        User actor = actors.require(email, "STUDENT", "MANAGER", "ADMIN");
+        User actor = actors.require(email, "STUDENT", "EXPERT", "MANAGER", "ADMIN");
         PostComment c = locked(id);
         boolean moderator = actor.getRoles().stream().anyMatch(r -> "MANAGER".equals(r.getCode()) || "ADMIN".equals(r.getCode()));
         if (!moderator) {
@@ -96,10 +100,12 @@ public class CommentService {
     }
     private Post visibleLocked(Long id) {
         if (id == null || id <= 0) throw error(HttpStatus.BAD_REQUEST, "Mã bài viết không hợp lệ.");
-        return posts.findForUpdate(id).filter(p -> p.isPublished() && !p.isDeleted()).orElseThrow(() -> missing());
+        return posts.findForUpdate(id).filter(p -> p.isPublished() && p.getStatus() == PostStatus.PUBLISHED && !p.isDeleted())
+            .orElseThrow(() -> missing());
     }
     private void requireEditable(PostComment c) {
-        if (c.getStatus() != CommentStatus.VISIBLE || !c.getPost().isPublished() || c.getPost().isDeleted())
+        if (c.getStatus() != CommentStatus.VISIBLE || !c.getPost().isPublished()
+            || c.getPost().getStatus() != PostStatus.PUBLISHED || c.getPost().isDeleted())
             throw error(HttpStatus.CONFLICT, "Chỉ được sửa/xóa khi bình luận và bài viết còn hiển thị.");
     }
     private String content(CommentRequest r) {

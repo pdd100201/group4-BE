@@ -6,9 +6,11 @@ import java.time.Instant;
 public record CommentResponse(Long id, Long postId, String postTitle, String authorName, String avatarUrl,
     String content, CommentStatus status, Instant createdAt, Instant updatedAt, boolean canEdit, boolean canDelete) {
     public static CommentResponse from(PostComment c, User viewer) {
-        boolean available = c.getStatus() == CommentStatus.VISIBLE && c.getPost().isPublished() && !c.getPost().isDeleted();
+        boolean available = c.getStatus() == CommentStatus.VISIBLE && c.getPost().isPublished()
+            && c.getPost().getStatus() == PostStatus.PUBLISHED && !c.getPost().isDeleted();
         boolean owner = viewer != null && viewer.isEnabled() && !viewer.isBlocked()
-            && viewer.getId().equals(c.getAuthor().getId()) && viewer.getRoles().stream().anyMatch(r -> "STUDENT".equals(r.getCode()));
+            && viewer.getId().equals(c.getAuthor().getId()) && viewer.getRoles().stream()
+                .anyMatch(r -> "STUDENT".equals(r.getCode()) || "EXPERT".equals(r.getCode()) || "MANAGER".equals(r.getCode()) || "ADMIN".equals(r.getCode()));
         boolean moderator = viewer != null && viewer.isEnabled() && !viewer.isBlocked()
             && viewer.getRoles().stream().anyMatch(r -> "MANAGER".equals(r.getCode()) || "ADMIN".equals(r.getCode()));
         return new CommentResponse(c.getId(), c.getPost().getId(), c.getPost().getTitle(), c.getAuthor().getFullName(),
