@@ -15,6 +15,8 @@ public class Post extends BaseEntity {
     @Column(nullable=false,length=12000) private String content;
     private boolean featured;
     private boolean published;
+    @Enumerated(EnumType.STRING) @Column(nullable=false,length=32) private PostStatus status=PostStatus.DRAFT;
+    private Instant publishedAt;
     @Column(nullable=false) private boolean deleted;
     private Instant createdAt;
     private Instant updatedAt;

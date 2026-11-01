@@ -36,7 +36,7 @@ public class MediaService {
                 && !(course.getStatus() == CourseStatus.PUBLISHED && "COURSE_IMAGE".equals(purpose)))
                 throw new ApiException(HttpStatus.CONFLICT, "Khóa học hiện không cho phép thay đổi nội dung này.");
         } else if ("CONTENT_IMAGE".equals(purpose)) {
-            if (user.getRoles().stream().noneMatch(r -> "MANAGER".equals(r.getCode()) || "ADMIN".equals(r.getCode()))) throw new ApiException(HttpStatus.FORBIDDEN, "Bạn không có quyền tải ảnh nội dung.");
+            // Any authenticated account can upload an article image for manager review.
         } else if (!"AVATAR".equals(purpose)) throw new ApiException(HttpStatus.BAD_REQUEST, "Mục đích tải lên không hợp lệ.");
         validate(file, video);
         Path temp = null;
