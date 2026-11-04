@@ -12,8 +12,8 @@ public class ExpertQuizController {
     private final ExpertQuizService quizzes;
     public record QuestionPage(List<QuestionChoice> content, long totalElements, int totalPages, int number) {}
     @GetMapping("/question-bank") public QuestionPage questions(@PathVariable Long courseId, Authentication actor,
-        @RequestParam(defaultValue="") String search, @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="20") int size) {
-        var result = quizzes.questionBank(courseId, actor.getName(), search, page, size);
+        @RequestParam(defaultValue="") String search, @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="20") int size, @RequestParam(required=false) Long lessonId) {
+        var result = quizzes.questionBank(courseId, actor.getName(), search, page, size,lessonId);
         return new QuestionPage(result.getContent(), result.getTotalElements(), result.getTotalPages(), result.getNumber());
     }
     @GetMapping public List<QuizResponse> list(@PathVariable Long courseId, Authentication a) { return quizzes.list(courseId, a.getName()); }

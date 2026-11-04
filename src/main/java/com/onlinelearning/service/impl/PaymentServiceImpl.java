@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class PaymentServiceImpl implements PaymentService {
     private static final Pattern CODE = Pattern.compile("(?<![A-Z0-9])OLS([TL])([1-9][0-9]{0,17})(?![A-Z0-9])");
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss").withResolverStyle(ResolverStyle.STRICT);
+    private final com.onlinelearning.service.NotificationEvents notificationEvents;
     private final CourseRegistrationRepository registrations;
     private final CourseRepository courses;
     private final PaymentRepository payments;
@@ -97,6 +98,7 @@ public class PaymentServiceImpl implements PaymentService {
         p.setStatus(PaymentStatus.CANCELLED);
         tx.setType("SEPAY_EXPIRED");
         if(r.getStatus()==RegistrationStatus.PENDING_PAYMENT) r.setStatus(RegistrationStatus.CANCELLED);
+        notificationEvents.paymentExpired(r,p);
     }
 
     private Instant expiresAt(Transaction tx) { return tx.getCreatedAt().plusSeconds(300); }
@@ -127,18 +129,28 @@ public class PaymentServiceImpl implements PaymentService {
         if (receiver.test() != config.testMode() || !receiver.bank().equalsIgnoreCase(event.gateway()) || !receiver.account().equals(event.accountNumber()) ||
                 (!receiver.qrAccount().equals(receiver.account()) && !receiver.qrAccount().equals(event.subAccount())))
             throw error(HttpStatus.BAD_REQUEST, "Giao dich khong dung tai khoan nhan.");
-        if (event.transferAmount().compareTo(tx.getAmount()) != 0 || p.getAmount().compareTo(tx.getAmount()) != 0)
+        if (event.transferAmount().compareTo(tx.getAmount()) != 0 || p.getAmount().compareTo(tx.getAmount()) != 0) {
+            notificationEvents.reconciliation(tx.getId(),p.getProvider(),event.id(),r.getCourse().getTitle(),"Số tiền chuyển khoản không khớp đăng ký. Chưa cấp quyền học.",event.transferAmount(),receiver.test());
             throw error(HttpStatus.CONFLICT, "So tien chuyen khoan khong khop. Can doi soat thu cong.");
+        }
         Instant paidAt;
         try { paidAt = LocalDateTime.parse(event.transactionDate(), DATE).atZone(ZoneId.of("Asia/Ho_Chi_Minh")).toInstant(); }
         catch (DateTimeException ex) { throw error(HttpStatus.BAD_REQUEST, "Thoi gian giao dich khong hop le."); }
         if (paidAt.isBefore(tx.getCreatedAt().minusSeconds(60)) || paidAt.isAfter(Instant.now().plusSeconds(300)))
             throw error(HttpStatus.BAD_REQUEST, "Thoi gian giao dich khong khop dang ky.");
         expireIfNeeded(r,p,tx);
-        if("SEPAY_EXPIRED".equals(tx.getType())) throw new PaymentExpiredException();
-        if(!paidAt.isBefore(expiresAt(tx))) throw error(HttpStatus.CONFLICT,"Giao dich nam ngoai thoi han thanh toan, can doi soat thu cong.");
-        if(p.getStatus()!=PaymentStatus.PENDING || r.getStatus()!=RegistrationStatus.PENDING_PAYMENT)
+        if("SEPAY_EXPIRED".equals(tx.getType())) {
+            notificationEvents.reconciliation(tx.getId(),p.getProvider(),event.id(),r.getCourse().getTitle(),"Tiền về sau khi QR hết hạn; cần kiểm tra thủ công.",event.transferAmount(),receiver.test());
+            throw new PaymentExpiredException();
+        }
+        if(!paidAt.isBefore(expiresAt(tx))) {
+            notificationEvents.reconciliation(tx.getId(),p.getProvider(),event.id(),r.getCourse().getTitle(),"Thời điểm chuyển tiền ngoài hạn thanh toán; cần kiểm tra thủ công.",event.transferAmount(),receiver.test());
+            throw error(HttpStatus.CONFLICT,"Giao dich nam ngoai thoi han thanh toan, can doi soat thu cong.");
+        }
+        if(p.getStatus()!=PaymentStatus.PENDING || r.getStatus()!=RegistrationStatus.PENDING_PAYMENT) {
+            notificationEvents.reconciliation(tx.getId(),p.getProvider(),event.id(),r.getCourse().getTitle(),"Tiền về cho đăng ký đã hủy hoặc không còn chờ thanh toán.",event.transferAmount(),receiver.test());
             throw error(HttpStatus.CONFLICT,"Dang ky da huy hoac khong con cho thanh toan. Can doi soat thu cong.");
+        }
         validateSnapshot(r);
         p.setStatus(PaymentStatus.SUCCEEDED); p.setProviderReference(reference);
         tx.setType("SEPAY_SUCCEEDED"); tx.setCreatedAt(paidAt); tx.setPayload(write(Map.of("eventId", event.id(), "code", code, "test", receiver.test())));
@@ -147,6 +159,7 @@ public class PaymentServiceImpl implements PaymentService {
             r.setValidUntil(RegistrationAccessTerms.validUntil(paidAt, r.getValidityMonthsSnapshot(), Boolean.TRUE.equals(r.getLifetimeSnapshot())));
         }
         payments.saveAndFlush(p);
+        notificationEvents.paymentSucceeded(r,p,tx);
     }
 
     private String paymentCode(SepayWebhook event) {

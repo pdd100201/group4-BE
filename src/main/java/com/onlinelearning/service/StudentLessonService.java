@@ -12,6 +12,7 @@ import java.util.*;
 
 @Service @RequiredArgsConstructor @Transactional(readOnly=true)
 public class StudentLessonService {
+    private final CertificateService certificateService;
     private final UserRepository users;
     private final CourseRepository courses;
     private final LessonRepository lessons;
@@ -44,6 +45,7 @@ public class StudentLessonService {
         Lesson lesson=lessons.findByIdAndCourseId(lessonId,courseId).filter(Lesson::isActive).orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Không tìm thấy bài học đang hoạt động."));
         var record=progress.findByStudentIdAndLessonId(student.getId(),lessonId).orElseGet(()->{var p=new StudentLessonProgress();p.setStudent(student);p.setLesson(lesson);return p;});
         if(!record.isCompleted()){record.setRegistration(registrations.findAccessRegistration(student.getId(),courseId,Instant.now(),org.springframework.data.domain.PageRequest.of(0,1)).stream().findFirst().orElseThrow(()->new ApiException(HttpStatus.FORBIDDEN,"Quyền học đã hết hạn.")));record.setStatus("COMPLETED");record.setCompleted(true);record.setProgressPercent(100);record.setCompletedAt(Instant.now());progress.saveAndFlush(record);}
+        certificateService.tryIssue(student.getId(),courseId);
         return read(courseId,lessonId,email);
     }
     private Course accessible(Long id,User student) {

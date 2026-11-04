@@ -19,8 +19,8 @@ public class ExpertQuestionController {
     public record StatusRequest(@NotNull Boolean active) {}
     @GetMapping public QuestionPage list(@PathVariable Long courseId, Authentication actor,
         @RequestParam(defaultValue="") String search, @RequestParam(defaultValue="") String type,
-        @RequestParam(required=false) Boolean active, @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="10") int size) {
-        var result=questions.list(courseId,actor.getName(),search,type,active,page,size);
+        @RequestParam(required=false) Boolean active, @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="10") int size, @RequestParam(required=false) Long lessonId) {
+        var result=questions.list(courseId,actor.getName(),search,type,active,page,size,lessonId);
         return new QuestionPage(result.getContent(),result.getTotalElements(),result.getTotalPages(),result.getNumber());
     }
     @PostMapping @ResponseStatus(HttpStatus.CREATED) public QuestionResponse create(@PathVariable Long courseId, Authentication actor, @Valid @RequestBody QuestionRequest request) { return questions.create(courseId,actor.getName(),request); }

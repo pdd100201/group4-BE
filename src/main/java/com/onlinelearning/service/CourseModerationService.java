@@ -13,6 +13,7 @@ import java.time.Instant;
 /** UC27/UC28, BR26/BR27: moderation without editing another Expert's content. */
 @Service @RequiredArgsConstructor @Transactional
 public class CourseModerationService {
+    private final com.onlinelearning.service.NotificationEvents notificationEvents;
     private final CourseRepository courses;
     private final UserRepository users;
     private final AuditLogRepository logs;
@@ -39,6 +40,10 @@ public class CourseModerationService {
         // learning progress may also exist independently of a registration.
         for (String query : new String[]{
             "select count(r) from CourseRegistration r where r.course.id=:id",
+            "select count(p) from CertificatePolicy p where p.course.id=:id",
+            "select count(c) from CourseCertificate c where c.course.id=:id",
+            "select count(a) from CourseAnnouncement a where a.course.id=:id",
+            "select count(d) from LessonDiscussion d where d.lesson.course.id=:id",
             "select count(a) from QuizAttempt a where a.quiz.course.id=:id",
             "select count(p) from StudentLessonProgress p where p.lesson.course.id=:id",
             "select count(a) from QuizAnswer a where a.question.course.id=:id",
@@ -84,5 +89,6 @@ public class CourseModerationService {
         AuditLog log = new AuditLog(); log.setActor(actor); log.setAction(action);
         log.setTargetType("COURSE"); log.setTargetId(course.getId().toString());
         log.setMetadata(reason); log.setOccurredAt(Instant.now()); logs.save(log);
+        notificationEvents.courseChange(course,action,"course-audit:"+log.getId(),reason);
     }
 }

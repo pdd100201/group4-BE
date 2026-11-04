@@ -173,7 +173,7 @@ class DeleteCourseTest {
 
     private void invoke(DeleteCase tc){
         if(tc.group().equals("EXPERT"))new ExpertCourseService(courses,users,logs,em,media,org.mockito.Mockito.mock(com.onlinelearning.repository.CoursePackageRepository.class)).delete(tc.courseId(),tc.email());
-        else new CourseModerationService(courses,users,logs,em).delete(tc.courseId(),tc.email(),tc.reason());
+        else new CourseModerationService(org.mockito.Mockito.mock(NotificationEvents.class),courses,users,logs,em).delete(tc.courseId(),tc.email(),tc.reason());
     }
 
     private User user(long id,String email,String role){

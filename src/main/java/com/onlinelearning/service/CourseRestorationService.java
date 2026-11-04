@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CourseRestorationService {
+    private final com.onlinelearning.service.NotificationEvents notificationEvents;
     private final CourseRepository courses;
     private final UserRepository users;
     private final AuditLogRepository auditLogs;
@@ -37,6 +38,7 @@ public class CourseRestorationService {
         log.setMetadata(reason.trim());
         log.setOccurredAt(java.time.Instant.now());
         auditLogs.save(log);
+        notificationEvents.courseChange(course,"COURSE_RESTORED","course-audit:"+log.getId(),reason.trim());
         return course;
     }
 }

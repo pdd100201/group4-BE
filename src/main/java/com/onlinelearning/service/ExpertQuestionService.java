@@ -26,7 +26,12 @@ public class ExpertQuestionService {
 
     @Transactional(readOnly=true)
     public Page<QuestionResponse> list(Long courseId, String email, String search, String type, Boolean active, int page, int size) {
+        return list(courseId,email,search,type,active,page,size,null);
+    }
+    @Transactional(readOnly=true)
+    public Page<QuestionResponse> list(Long courseId, String email, String search, String type, Boolean active, int page, int size, Long lessonId) {
         owned(courseId, email, false);
+        if(lessonId!=null && lessonId!=0) scopedLesson(courseId,lessonId);
         if (page < 0 || size < 1 || size > 100 || search.length() > 200) throw bad("Bộ lọc hoặc phân trang không hợp lệ.");
         if (!type.isBlank() && !Set.of("SINGLE_CHOICE", "MULTIPLE_CHOICE").contains(type)) throw bad("Loại câu hỏi không hợp lệ.");
         String pattern = "%" + search.trim().toLowerCase(Locale.ROOT).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
@@ -36,6 +41,7 @@ public class ExpertQuestionService {
             filters.add(cb.like(cb.lower(root.get("content")), pattern, '\\'));
             if (!type.isBlank()) filters.add(cb.equal(root.get("type"), type));
             if (active != null) filters.add(cb.equal(root.get("active"), active));
+            if (lessonId != null) filters.add(lessonId==0 ? cb.isNull(root.get("lesson")) : cb.equal(root.get("lesson").get("id"),lessonId));
             return cb.and(filters.toArray(jakarta.persistence.criteria.Predicate[]::new));
         };
         return questions.findAll(spec, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"))).map(QuestionResponse::from);
@@ -73,10 +79,16 @@ public class ExpertQuestionService {
             throw bad("Các đáp án không được trùng nhau.");
     }
     private void apply(Question q, QuestionRequest r, String email) {
+        q.setLesson(r.lessonId()==null?null:scopedLesson(q.getCourse().getId(),r.lessonId()));
         q.setContent(r.content().trim()); q.setType(r.type()); q.setQuestionType(r.type());
         q.setExplanation(r.explanation()); q.setActive(r.active()); q.setStatus(r.active() ? "ACTIVE" : "INACTIVE");
         q.setImage(media.attachment(r.imageMediaId(), email, q.getCourse().getId(), "QUESTION_IMAGE"));
         for (var input : r.options()) { var o = new QuestionOption(); o.setQuestion(q); o.setContent(input.content().trim()); o.setCorrect(input.correct()); q.getOptions().add(o); }
+    }
+    private Lesson scopedLesson(Long courseId,Long lessonId) {
+        Lesson lesson=em.find(Lesson.class,lessonId);
+        if(lesson==null || !lesson.getCourse().getId().equals(courseId)) throw bad("Bài học không thuộc khóa học này.");
+        return lesson;
     }
     public Course owned(Long courseId, String email, boolean write) {
         Course course = (write ? courses.findForUpdate(courseId) : courses.findById(courseId)).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));

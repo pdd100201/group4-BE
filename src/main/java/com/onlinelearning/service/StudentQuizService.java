@@ -14,6 +14,7 @@ import java.util.*;
 
 @Service @RequiredArgsConstructor @Transactional
 public class StudentQuizService {
+    private final CertificateService certificateService;
     private final UserRepository users;
     private final QuizRepository quizzes;
     private final QuizAttemptRepository attempts;
@@ -107,6 +108,7 @@ public class StudentQuizService {
             boolean match=!correct.isEmpty()&&correct.equals(new HashSet<>(selected(a,q.getId())));value.setCorrect(match);value.setAwardedPoints(match?(double)item.getPoints():0d);total+=item.getPoints();earned+=value.getAwardedPoints();
         }
         a.setScore(total==0?0d:Math.round(earned*10000/total)/100d);a.setPassed(a.getScore()>=(a.getPassRateSnapshot()==null?a.getQuiz().getPassRate():a.getPassRateSnapshot()));a.setSubmittedAt(submitted);attempts.saveAndFlush(a);
+        certificateService.tryIssue(a.getStudent().getId(),a.getQuiz().getCourse().getId());
     }
     private Attempt state(QuizAttempt a) {
         return new Attempt(a.getId(),a.getQuiz().getId(),a.getQuiz().getCourse().getId(),a.getQuiz().getLesson()==null?null:a.getQuiz().getLesson().getId(),a.getQuiz().getTitle(),Instant.now(),deadline(a),a.getSubmittedAt(),

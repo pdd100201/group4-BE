@@ -52,12 +52,18 @@ public class ExpertQuizService {
 
     @Transactional(readOnly=true)
     public org.springframework.data.domain.Page<QuestionChoice> questionBank(Long courseId, String email, String search, int page, int size) {
+        return questionBank(courseId,email,search,page,size,null);
+    }
+    @Transactional(readOnly=true)
+    public org.springframework.data.domain.Page<QuestionChoice> questionBank(Long courseId, String email, String search, int page, int size, Long lessonId) {
         owned(courseId, email, false);
+        if(lessonId!=null && lessonId!=0) lesson(courseId,lessonId);
         validatePage(page, size);
         if (search.length() > 200) throw new ApiException(HttpStatus.BAD_REQUEST, "Từ khóa tối đa 200 ký tự.");
         String pattern = "%" + search.trim().toLowerCase(Locale.ROOT).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
         org.springframework.data.jpa.domain.Specification<Question> spec = (root, query, cb) -> cb.and(
-            cb.equal(root.get("course").get("id"), courseId), cb.isTrue(root.get("active")), cb.like(cb.lower(root.get("content")), pattern, '\\'));
+            cb.equal(root.get("course").get("id"), courseId), cb.isTrue(root.get("active")), cb.like(cb.lower(root.get("content")), pattern, '\\'),
+            lessonId==null?cb.conjunction():lessonId==0?cb.isNull(root.get("lesson")):cb.equal(root.get("lesson").get("id"),lessonId));
         return questions.findAll(spec, org.springframework.data.domain.PageRequest.of(page, size,
             org.springframework.data.domain.Sort.by("id"))).map(q -> new QuestionChoice(q.getId(), q.getContent(), q.getType(), q.isActive()));
     }

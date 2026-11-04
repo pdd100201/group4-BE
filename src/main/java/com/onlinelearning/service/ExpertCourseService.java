@@ -64,7 +64,7 @@ public class ExpertCourseService {
         Course c = owned(id, email, true);
         if (c.getStatus() != CourseStatus.DRAFT && c.getStatus() != CourseStatus.REJECTED)
             throw new ApiException(HttpStatus.CONFLICT, "Expert chỉ được xóa khóa học Nháp hoặc Bị từ chối.");
-        for (String entity : new String[]{"CourseRegistration", "Lesson", "Question", "Quiz"}) {
+        for (String entity : new String[]{"CourseRegistration", "Lesson", "Question", "Quiz", "CertificatePolicy", "CourseCertificate"}) {
             Long count = entityManager.createQuery("select count(e) from " + entity + " e where e.course.id = :id", Long.class)
                 .setParameter("id", id).getSingleResult();
             if (count > 0) throw new ApiException(HttpStatus.CONFLICT, "Không thể xóa khóa học còn nội dung hoặc dữ liệu đăng ký liên quan.");

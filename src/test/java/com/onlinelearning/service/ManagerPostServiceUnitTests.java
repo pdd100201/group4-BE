@@ -36,6 +36,7 @@ class ManagerPostServiceUnitTests {
     @Mock MediaAssetRepository media;
     @Mock AuditLogRepository audit;
     @Mock BlogActorService actors;
+    @org.mockito.Mock com.onlinelearning.service.NotificationEvents notificationEvents;
     @InjectMocks ManagerPostService managerPosts;
 
     @Nested

@@ -130,8 +130,8 @@ class UpdateCourseStatusTest {
 
     private Course invoke(StatusCase tc) {
         return tc.action().equals("ARCHIVE")
-            ? new CourseModerationService(courses, users, logs, em).archive(tc.courseId(), tc.email(), tc.reason())
-            : new CourseRestorationService(courses, users, logs).restore(tc.courseId(), tc.email(), tc.reason());
+            ? new CourseModerationService(org.mockito.Mockito.mock(NotificationEvents.class),courses, users, logs, em).archive(tc.courseId(), tc.email(), tc.reason())
+            : new CourseRestorationService(org.mockito.Mockito.mock(NotificationEvents.class),courses, users, logs).restore(tc.courseId(), tc.email(), tc.reason());
     }
 
     @AfterAll

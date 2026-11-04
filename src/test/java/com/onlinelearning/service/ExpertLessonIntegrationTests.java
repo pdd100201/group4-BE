@@ -19,6 +19,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest @ActiveProfiles("test") @Transactional @AutoConfigureMockMvc
 class ExpertLessonIntegrationTests {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.onlinelearning.api.ChatMediaStorage chatStorage;
     @Autowired ExpertCourseService courses;
     @Autowired ExpertLessonService lessons;
     @Autowired CourseRepository repository;
@@ -45,7 +46,7 @@ class ExpertLessonIntegrationTests {
         Long id = course(); var second = lessons.create(id, OWNER, input(2)); var first = lessons.create(id, OWNER, input(1));
         assertEquals(first.id(), lessons.list(id, OWNER).getFirst().id());
         var updated = lessons.update(id, first.id(), OWNER, new LessonRequest("Updated", "New content", 3, false));
-        assertFalse(updated.active()); assertEquals("New content", lessons.get(id, first.id(), OWNER).content());
+        assertTrue(updated.active()); assertEquals("New content", lessons.get(id, first.id(), OWNER).content());
         assertEquals(second.id(), lessons.list(id, OWNER).getFirst().id());
         lessons.delete(id, first.id(), OWNER); assertEquals(1, lessons.list(id, OWNER).size());
         assertTrue(audit.findAll().stream().anyMatch(l -> "LESSON_DELETED".equals(l.getAction()) && first.id().toString().equals(l.getTargetId())));
@@ -93,7 +94,7 @@ class ExpertLessonIntegrationTests {
             mvc.perform(delete(path + "/1").with(user("other@test.local").roles(role))).andExpect(status().isForbidden());
         }
         mvc.perform(post(path).with(user(OWNER).roles("EXPERT")).contentType("application/json").content("{\"title\":\"\",\"content\":\"\",\"position\":0,\"active\":true}")) .andExpect(status().isBadRequest());
-        String body = "{\"title\":\"HTTP lesson\",\"content\":\"Content\",\"position\":1,\"active\":true}";
+        String body = "{\"title\":\"HTTP lesson\",\"content\":\"Content\",\"position\":1}";
         mvc.perform(post(path).with(user(OWNER).roles("EXPERT")).contentType("application/json").content(body)).andExpect(status().isCreated()).andExpect(jsonPath("title").value("HTTP lesson"));
         Long lessonId = lessons.list(id, OWNER).getFirst().id();
         mvc.perform(put(path + "/" + lessonId).with(user(OWNER).roles("EXPERT")).contentType("application/json").content(body.replace("HTTP lesson", "Updated"))).andExpect(status().isOk()).andExpect(jsonPath("title").value("Updated"));

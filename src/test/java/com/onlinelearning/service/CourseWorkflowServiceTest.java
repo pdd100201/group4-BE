@@ -22,6 +22,7 @@ class CourseWorkflowServiceTest {
     @Mock UserRepository users;
     @Mock AuditLogRepository logs;
     @Mock CourseSubmissionReadinessService readiness;
+    @org.mockito.Mock com.onlinelearning.service.NotificationEvents notificationEvents;
     @InjectMocks CourseServiceImpl service;
 
     private Course course(CourseStatus status) {

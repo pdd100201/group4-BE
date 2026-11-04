@@ -22,6 +22,7 @@ class CourseModerationServiceTest {
     @Mock UserRepository users;
     @Mock AuditLogRepository logs;
     @Mock EntityManager em;
+    @org.mockito.Mock com.onlinelearning.service.NotificationEvents notificationEvents;
     @InjectMocks CourseModerationService service;
 
     private User actor(String role) {

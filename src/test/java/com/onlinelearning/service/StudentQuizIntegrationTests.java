@@ -25,6 +25,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest @ActiveProfiles("test") @Transactional @AutoConfigureMockMvc
 class StudentQuizIntegrationTests {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.onlinelearning.api.ChatMediaStorage chatStorage;
     @Autowired StudentQuizService studentQuiz;
     @Autowired ExpertQuizService quizzes;
     @Autowired ExpertQuestionService questions;

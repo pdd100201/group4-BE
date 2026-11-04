@@ -39,6 +39,9 @@ public class ExpertLessonService {
     }
     public void delete(Long courseId, Long id, String email) {
         Course c = owned(courseId, email, true); editable(c); Lesson l = lesson(courseId, id);
+        Long quizLinks=em.createQuery("select count(q) from Quiz q where q.lesson.id=:id",Long.class).setParameter("id",id).getSingleResult();
+        Long questionLinks=em.createQuery("select count(q) from Question q where q.lesson.id=:id",Long.class).setParameter("id",id).getSingleResult();
+        if((quizLinks!=null && quizLinks>0)||(questionLinks!=null && questionLinks>0)) throw new ApiException(HttpStatus.CONFLICT,"Bài học đang có quiz hoặc câu hỏi. Hãy chuyển chúng sang bài khác hoặc phạm vi toàn khóa trước khi xóa.");
         Long retained = em.createQuery("select count(p) from StudentLessonProgress p where p.lesson.id = :id", Long.class).setParameter("id", id).getSingleResult();
         if (retained > 0) throw new ApiException(HttpStatus.CONFLICT, "Không thể xóa bài học đã có tiến độ học tập của Student.");
         record(l, "LESSON_DELETED"); lessons.delete(l); lessons.flush();
@@ -55,7 +58,7 @@ public class ExpertLessonService {
     private void position(Long courseId, Integer position, Long id) {
         if (lessons.existsByCourseIdAndPositionAndIdNot(courseId, position, id)) throw new ApiException(HttpStatus.CONFLICT, "Thứ tự này đã có bài học. Hãy chọn thứ tự khác.");
     }
-    private void apply(Lesson l, LessonRequest r) { l.setTitle(r.title().trim()); l.setContent(r.content().trim()); l.setPosition(r.position()); l.setActive(r.active()); }
+    private void apply(Lesson l, LessonRequest r) { l.setTitle(r.title().trim()); l.setContent(r.content().trim()); l.setPosition(r.position()); }
     private void record(Lesson l, String action) {
         AuditLog log = new AuditLog(); log.setActor(l.getCourse().getExpert()); log.setAction(action); log.setTargetType("LESSON"); log.setTargetId(l.getId().toString());
         log.setMetadata("courseId=" + l.getCourse().getId()); log.setOccurredAt(Instant.now()); audit.save(log);

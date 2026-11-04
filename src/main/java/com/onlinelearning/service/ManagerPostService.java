@@ -13,6 +13,7 @@ import java.time.Instant;
 
 @Service @RequiredArgsConstructor @Transactional(readOnly=true)
 public class ManagerPostService {
+    private final com.onlinelearning.service.NotificationEvents notificationEvents;
     private final PostRepository posts;
     private final MediaAssetRepository media;
     private final AuditLogRepository audit;
@@ -66,6 +67,7 @@ public class ManagerPostService {
             record(actor, post, "REJECT_POST");
         }
         post.setUpdatedAt(Instant.now());
+        notificationEvents.postReviewed(post);
         return ManagedPostResponse.from(post);
     }
     private Post lock(Long id) {

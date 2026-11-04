@@ -19,6 +19,7 @@ import java.time.Instant;
 @Service @RequiredArgsConstructor @Transactional(readOnly=true)
 public class PostSubmissionService {
     private static final String[] SUBMITTER_ROLES = {"STUDENT", "EXPERT", "MANAGER", "ADMIN", "GUEST"};
+    private final com.onlinelearning.service.NotificationEvents notificationEvents;
     private final PostRepository posts;
     private final MediaAssetRepository media;
     private final AuditLogRepository audit;
@@ -40,6 +41,7 @@ public class PostSubmissionService {
         post.setPublished(false); post.setStatus(PostStatus.PENDING_REVIEW); post.setUpdatedAt(Instant.now());
         posts.saveAndFlush(post);
         record(author, post);
+        notificationEvents.postSubmitted(post);
         return ManagedPostResponse.from(post);
     }
 

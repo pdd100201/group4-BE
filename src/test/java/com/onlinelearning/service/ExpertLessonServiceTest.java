@@ -73,10 +73,10 @@ class ExpertLessonServiceTest {
         ArgumentCaptor<Lesson> capture = ArgumentCaptor.forClass(Lesson.class); verify(lessons).save(capture.capture()); assertSame(course, capture.getValue().getCourse());
         verify(lessons).existsByCourseIdAndPositionAndIdNot(1L, 2, -1L); checkAudit("LESSON_CREATED");
     }
-    @Test void createHiddenLessonWithoutVideo() {
+    @Test void createIgnoresExpertVisibilityAndDefaultsToActive() {
         writable(); when(lessons.save(any(Lesson.class))).thenAnswer(call -> { Lesson saved=call.getArgument(0); saved.setId(7L); return saved; });
         var result=service.create(1L, EMAIL, new LessonRequest("Title", "Content", 1, false));
-        assertFalse(result.active()); assertNull(result.videoMediaId()); verify(media).attachment(null, EMAIL, 1L, "LESSON_VIDEO");
+        assertTrue(result.active()); assertNull(result.videoMediaId()); verify(media).attachment(null, EMAIL, 1L, "LESSON_VIDEO");
     }
     @Test void createDuplicatePositionDoesNotSaveOrAttach() {
         writable(); when(lessons.existsByCourseIdAndPositionAndIdNot(1L, 2, -1L)).thenReturn(true);
@@ -101,8 +101,13 @@ class ExpertLessonServiceTest {
     }
     @Test void updateKeepsIdentityAndAllowsCurrentPosition() {
         writable(); existing(); var result=service.update(1L, 7L, EMAIL, new LessonRequest(" New title ", " New content ", 1, false));
-        assertEquals(7L, result.id()); assertEquals("New title", result.title()); assertEquals("New content", result.content()); assertFalse(result.active()); assertNull(result.videoMediaId());
+        assertEquals(7L, result.id()); assertEquals("New title", result.title()); assertEquals("New content", result.content()); assertTrue(result.active()); assertNull(result.videoMediaId());
         verify(lessons).existsByCourseIdAndPositionAndIdNot(1L, 1, 7L); verify(lessons, never()).save(any()); checkAudit("LESSON_UPDATED");
+    }
+    @Test void updatePreservesExistingVisibility() {
+        writable(); existing(); lesson.setActive(false);
+        var result=service.update(1L,7L,EMAIL,new LessonRequest("Title","Content",1,true));
+        assertFalse(result.active());
     }
     @Test void updateDuplicatePositionLeavesLessonUntouched() {
         writable(); existing(); when(lessons.existsByCourseIdAndPositionAndIdNot(1L, 2, 7L)).thenReturn(true);

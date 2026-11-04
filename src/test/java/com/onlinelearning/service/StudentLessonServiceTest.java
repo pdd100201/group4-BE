@@ -26,6 +26,7 @@ class StudentLessonServiceTest {
     @Mock StudentLessonProgressRepository progress;
     @Mock EntityManager em;
     @Mock QuizRepository quizzes;
+    @Mock CertificateService certificateService;
     @InjectMocks StudentLessonService service;
     User student;
     Course course;
