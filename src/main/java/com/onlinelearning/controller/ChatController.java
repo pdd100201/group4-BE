@@ -11,17 +11,18 @@ import java.util.List;
 public class ChatController {
     private final ChatService service;
     @GetMapping("/users")
-    public Page<ChatUserResponse> users(@RequestParam(defaultValue = "") String query, @RequestParam(defaultValue = "0") int page) {
+    public Page<ChatContactResponse> users(@RequestParam(defaultValue = "") String query, @RequestParam(defaultValue = "0") int page) {
         return service.directory(query, page);
     }
     @GetMapping("/messages")
-    public List<ChatMessageResponse> messages(@RequestParam(required = false) Long peerId, @RequestParam(required = false) Long before) {
-        return service.history(peerId, before);
+    public List<ChatMessageResponse> messages(@RequestParam Long peerId, @RequestParam Long courseId,
+                                               @RequestParam(required = false) Long before) {
+        return service.history(peerId, courseId, before);
     }
     @GetMapping("/messages/search")
-    public List<ChatMessageResponse> search(@RequestParam(required = false) Long peerId,
+    public List<ChatMessageResponse> search(@RequestParam Long peerId, @RequestParam Long courseId,
                                            @RequestParam String query,
                                            @RequestParam(required = false) Long before) {
-        return service.search(peerId, query, before);
+        return service.search(peerId, courseId, query, before);
     }
 }
