@@ -54,8 +54,9 @@ class CourseCurriculumIntegrationTests {
  }
  @Test void organizesBankQuestionsAndQuizzesWithoutDuplicatingQuestions(){
   var f=fixture();var scoped=questions.create(f.course().getId(),OWNER,question(f.first().getId()));questions.create(f.course().getId(),OWNER,question(null));
-  quizzes.create(f.course().getId(),OWNER,new QuizRequest("Lesson quiz",10,70,3,true,f.first().getId(),List.of(new QuizQuestionItem(scoped.id(),1,1))));
-  quizzes.create(f.course().getId(),OWNER,new QuizRequest("Final quiz",20,80,2,true,null,List.of(new QuizQuestionItem(scoped.id(),1,1))));
+  Quiz legacy=new Quiz();legacy.setCourse(f.course());legacy.setLesson(f.first());legacy.setTitle("Legacy lesson quiz");em.persist(legacy);
+  QuizQuestion link=new QuizQuestion();link.setQuiz(legacy);link.setQuestion(em.find(Question.class,scoped.id()));link.setPosition(1);link.setPoints(1);em.persist(link);
+  Quiz oldFinal=new Quiz();oldFinal.setCourse(f.course());oldFinal.setTitle("Legacy final quiz");em.persist(oldFinal);em.flush();
   var outline=curriculum.read(f.course().getId(),OWNER);assertEquals(1,outline.sharedQuestions());assertEquals(1,outline.lessons().getFirst().bankQuestions());assertEquals(1,outline.lessons().getFirst().quizzes().size());assertEquals(1,outline.lessons().getFirst().quizzes().getFirst().questionCount());assertEquals(1,outline.courseQuizzes().size());
   assertEquals(1,questions.list(f.course().getId(),OWNER,"","",null,0,10,f.first().getId()).getTotalElements());
   assertEquals(1,questions.list(f.course().getId(),OWNER,"","",null,0,10,0L).getTotalElements());
@@ -74,6 +75,6 @@ class CourseCurriculumIntegrationTests {
   questions.update(f.course().getId(),q.id(),OWNER,question(null));lessonService.delete(f.course().getId(),f.first().getId(),OWNER);assertEquals(1,curriculum.read(f.course().getId(),OWNER).lessons().size());
  }
  @Test void preventsDeletingLessonWithLinkedQuiz(){
-  var f=fixture();quizzes.create(f.course().getId(),OWNER,new QuizRequest("Draft quiz",null,null,null,false,f.first().getId(),List.of()));assertEquals(409,assertThrows(ApiException.class,()->lessonService.delete(f.course().getId(),f.first().getId(),OWNER)).status().value());
+  var f=fixture();Quiz legacy=new Quiz();legacy.setCourse(f.course());legacy.setTitle("Legacy quiz");legacy.setLesson(f.first());em.persist(legacy);em.flush();assertEquals(409,assertThrows(ApiException.class,()->lessonService.delete(f.course().getId(),f.first().getId(),OWNER)).status().value());
  }
 }

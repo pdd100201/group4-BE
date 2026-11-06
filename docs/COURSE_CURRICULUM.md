@@ -1,49 +1,43 @@
-# Giáo trình theo bài học
+# Giáo trình và quiz cuối khóa
 
-## Luồng sử dụng
+## Luồng Expert
 
-Expert vào Quản lý khóa học → mở khóa → khu vực nội dung có ba mục:
+Quản lý khóa học → Tạo khóa học → Lưu bản nháp → Xây dựng giáo trình.
 
-- **Tổng quan giáo trình**: bài học theo thứ tự; quiz nằm dưới bài liên quan; quiz toàn khóa nằm cuối. Thống kê số bài, quiz, câu hỏi ngân hàng và số bài chưa có quiz hoạt động.
-- **Quản lý bài học**: tạo, sửa hoặc xóa nội dung theo quyền hiện có. Bài học mới mặc định hoạt động; Expert không chọn ẩn/hiện. Khóa học chỉ được xuất bản sau khi Manager duyệt. Tại tổng quan, nút lên/xuống lưu thứ tự ngay; bài học được đánh số liên tục. Tắt sắp xếp khi đang tìm kiếm để tránh đổi thứ tự ngoài phần nhìn thấy.
-- **Quản lý quiz**: cấu hình thời gian, tỷ lệ đạt, số lượt, bài liên quan và câu hỏi.
+- Tổng quan giáo trình: sắp xếp bài học bằng nút lên/xuống, xem quiz cuối khóa.
+- Bài học: soạn bài và tải video. Bài mới hoạt động mặc định; khóa cần Manager duyệt để xuất bản.
+- Quiz cuối khóa: nhập tên, thời lượng, điểm đạt (%) và số lượt làm tối đa; thêm câu hỏi trực tiếp, không qua ngân hàng câu hỏi.
+- Mỗi câu có bốn đáp án khác nhau, một hoặc nhiều đáp án đúng, điểm nguyên dương và giải thích tùy chọn. Đổi loại câu hỏi sẽ xóa lựa chọn đáp án đúng để Expert xác nhận lại.
+- Dùng nút lên/xuống để đổi thứ tự câu, hoặc bỏ câu. Giới hạn 200 câu mỗi quiz.
+- Lưu quiz và câu hỏi trong một lần. Chuyển tab/bước không làm mất bản soạn; chưa lưu thì không gửi duyệt được.
+- Sau khi hoàn tất nội dung, cấu hình gói học rồi kiểm tra và gửi duyệt.
 
-Tại mỗi bài trong tổng quan có liên kết quản lý câu hỏi và tạo quiz cho đúng bài. Trang câu hỏi và trang soạn quiz có đường quay về giáo trình.
+## Quy tắc
 
-## Phân bổ câu hỏi và quiz
+- Mỗi course có đúng một quiz toàn khóa trước khi gửi duyệt. Bản nháp có thể chưa có quiz để Expert hoàn thiện dần.
+- Quiz không gắn riêng với bài học; câu hỏi mới thuộc quiz toàn khóa.
+- Bỏ menu ngân hàng câu hỏi và menu quản lý quiz riêng. Các URL cũ chuyển về phần quiz trong khóa học.
+- Backend khóa course khi ghi, chặn tạo quiz thứ hai kể cả khi gửi đồng thời hoặc quiz hiện có chưa hoạt động.
+- Chỉ Expert sở hữu được sửa khi course là DRAFT/REJECTED. Quiz đã có lượt làm bài chỉ được xem; lưu giữ câu hỏi, đáp án và kết quả.
+- Quiz và toàn bộ câu hỏi được lưu trong một transaction. Câu hỏi hoặc ảnh đính kèm không hợp lệ sẽ làm cả lần lưu thất bại.
+- Gửi duyệt yêu cầu đúng một quiz hoạt động, đủ cấu hình và ít nhất một câu hỏi hợp lệ. Các điều kiện ảnh, video, bài học và gói giá vẫn áp dụng.
 
-- Câu hỏi có phạm vi một bài học hoặc dùng chung toàn khóa. Câu hỏi cũ và câu hỏi import Excel vẫn thuộc phạm vi dùng chung cho đến khi Expert phân loại lại.
-- Ngân hàng câu hỏi có bộ lọc phạm vi, tìm kiếm, loại, trạng thái và phân trang.
-- Quiz vẫn có thể lấy câu hỏi từ nhiều bài trong cùng khóa để tạo đánh giá tổng hợp. Bộ lọc phạm vi trong trình soạn quiz chỉ hỗ trợ chọn câu, không âm thầm bỏ câu đã chọn khi đổi bộ lọc.
-- Câu hỏi không bị tự chia ngẫu nhiên vào các bài. Expert quyết định theo chủ đề; số lượng trong tổng quan giúp nhận biết phần thiếu hoặc tập trung quá nhiều nội dung.
-- Trong quiz có tổng điểm, số câu, thao tác đánh lại thứ tự câu từ 1 và chia đều trọng số 1 điểm/câu. Chia đều điểm chỉ thay đổi bản soạn; cần lưu quiz để áp dụng.
-- Không yêu cầu mọi bài đều có quiz. Cảnh báo thiếu quiz phục vụ quản lý nội dung, không phải điều kiện chặn học hoặc cấp chứng nhận.
+## Dữ liệu cũ
 
-## Phía học viên
+Không tự xóa quiz hoặc lịch sử học tập. Khóa có nhiều quiz hiển thị danh sách cũ; Expert có thể xác nhận xóa quiz chưa có lượt làm để giữ lại một quiz. Quiz còn lại được sửa thành quiz toàn khóa khi lưu. Khóa có nhiều quiz đã có lượt làm phải bảo lưu lịch sử; không gửi duyệt lại bằng quy tắc mới cho đến khi có phương án chuyển đổi dữ liệu.
 
-- Giáo trình sử dụng thứ tự bài do Expert lưu.
-- Quiz được hiển thị ngay sau bài gắn với nó. Quiz toàn khóa hiển thị cuối giáo trình và có nhãn đánh giá toàn khóa.
-- Tìm kiếm trong giáo trình tìm được tên bài và tên quiz liên quan; khi tìm thấy quiz của bài, bài đó vẫn hiển thị để giữ ngữ cảnh.
-- Tab bài kiểm tra của bài chỉ chứa quiz của bài đó; quiz toàn khóa truy cập ở cuối giáo trình.
-- Chưa khóa bài theo thứ tự hoặc yêu cầu đạt quiz mới được học bài tiếp. Quy tắc cấp chứng nhận vẫn do Manager/Admin cấu hình riêng.
+Không drop bảng câu hỏi: các bảng này vẫn lưu câu hỏi và đáp án của quiz, đồng thời bảo toàn dữ liệu cũ. Không cần migration schema cho thay đổi này.
 
-## Quyền sửa và dữ liệu cũ
+## Student và chứng nhận
 
-- Chỉ Expert sở hữu được sắp xếp giáo trình hoặc phân loại câu hỏi; thao tác ghi chỉ được thực hiện khi khóa Nháp hoặc Bị từ chối.
-- Cơ chế giữ lại quiz/câu hỏi đã có kết quả làm bài vẫn áp dụng.
-- Bài học đang có quiz hoặc câu hỏi liên kết không thể xóa; cần chuyển liên kết sang bài khác hoặc toàn khóa trước.
-- Sắp xếp lưu trong một giao dịch, khóa course, kiểm tra danh sách thứ tự trước đó để từ chối yêu cầu từ giao diện đã cũ, có audit log.
-- Không thêm cấp chương mới trong đợt này; cấu trúc hiện tại là khóa → bài → quiz, kèm đánh giá toàn khóa.
+Học viên thấy quiz mới ở cuối giáo trình. Thời lượng, điểm đạt, số lượt làm, quyền truy cập và chấm điểm tiếp tục do backend kiểm soát. Các quiz cũ vẫn được giữ để đọc lịch sử. Quy tắc chứng nhận vẫn do Manager/Admin xác nhận; thay đổi quiz bắt buộc cần cấu hình lại phiên bản điều kiện như trước.
 
-## Schema và API
+## API
 
-- Thêm `questions.lesson_id` nullable, FK sang `lesson(id)`.
-- Môi trường phát triển đang cấu hình Hibernate ddl-auto=update: restart backend để tạo cột. Môi trường quản lý schema riêng dùng `database/migrations/V019__question_lesson_scope.sql`. Không chạy script này lần nữa nếu Hibernate đã tạo cột.
-- GET `/api/v1/expert/courses/{courseId}/curriculum` lấy tổng quan.
-- PUT `.../curriculum/order` nhận `lessonIds`, `expectedLessonIds`.
-- API câu hỏi nhận `lessonId` nullable khi tạo/sửa; API danh sách câu hỏi và question-bank nhận bộ lọc `lessonId`: bỏ trống = tất cả, 0 = dùng chung, ID dương = bài cụ thể.
+- GET /api/v1/expert/courses/{courseId}/assessment: quiz cùng câu hỏi, bốn đáp án và cờ retained; chỉ Expert sở hữu có quyền đọc.
+- PUT cùng đường dẫn: lưu quiz và câu hỏi cùng một transaction. id là null khi tạo, hoặc ID hiện có khi sửa. questionId là null cho câu mới, hoặc ID đang thuộc quiz cho câu cũ. Thứ tự được xác định bằng thứ tự mảng.
+- Các API quiz cũ vẫn đọc được dữ liệu cũ; API tạo mới cũng chặn quiz thứ hai và từ chối gắn quiz theo bài học.
 
-## Kiểm chứng
+## Kiểm tra
 
-Frontend được kiểm tra bằng TypeScript và Vite build. Kiểm thử backend bao phủ sắp xếp/thứ tự cũ/ID trùng hoặc khác khóa/quyền sở hữu/trạng thái xuất bản, thống kê quiz-câu hỏi, phân loại và lọc câu hỏi, tương thích request cũ, chặn xóa bài liên kết. Chưa xác nhận giao diện trực tiếp bằng trình duyệt và chưa chạy migration trên MySQL thực.
-Kết quả: 66 kiểm thử thành công, không lỗi: CourseCurriculumIntegrationTests (8), ExpertQuestionIntegrationTests (5), ExpertQuizIntegrationTests (9), ExpertLessonServiceTest (23), StudentLessonIntegrationTests (4), CertificateIntegrationTests (17). Các kiểm thử tích hợp sử dụng H2; dịch vụ lưu media được mock để không phụ thuộc mạng ngoài.
+Kiểm thử tích hợp dùng H2 tách biệt, dịch vụ media được mock. Bao phủ tạo/sửa, kiểm tra đáp án, tính nguyên tử khi lỗi giữa lần lưu, quyền sở hữu, quyền đọc đáp án, chặn tạo trùng đồng thời, lưu giữ lượt làm và điều kiện gửi duyệt. Frontend kiểm tra TypeScript, build, và Chrome với dữ liệu giả lập cho thao tác soạn câu, thứ tự, lưu, giữ bản nháp khi chuyển tab hoặc lỗi, khóa quiz có lượt làm, dữ liệu cũ và hiển thị ở sáu chiều rộng màn hình. Chưa chạy kiểm thử với MySQL thật.

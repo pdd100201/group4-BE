@@ -90,6 +90,10 @@ public class ExpertQuizService {
     public QuizResponse create(Long courseId, String email, QuizRequest request) {
         Course c = owned(courseId, email, true);
         editable(c);
+        if (!quizzes.findByCourseIdOrderByIdAsc(courseId).isEmpty())
+            throw new ApiException(HttpStatus.CONFLICT, "Mỗi khóa học chỉ có một quiz. Hãy chỉnh sửa quiz hiện có.");
+        if (request.lessonId() != null)
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Quiz đánh giá toàn khóa, không gắn riêng bài học.");
         Quiz q = new Quiz();
         q.setCourse(c);
         apply(q, request);
@@ -105,9 +109,11 @@ public class ExpertQuizService {
         editable(c);
         Quiz q = quiz(courseId, id);
         retainable(q);
+        if (request.lessonId() != null)
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Quiz đánh giá toàn khóa, không gắn riêng bài học.");
         apply(q, request);
         q.setLesson(lesson(courseId, request.lessonId()));
-        quizQuestions.deleteByQuizId(id);
+        clearLinks(id);
         List<QuizQuestion> items = link(q, courseId, request.questions());
         record(q, "QUIZ_UPDATED");
         return QuizResponse.from(q, items);
@@ -120,9 +126,15 @@ public class ExpertQuizService {
         if (attempts.existsByQuizId(id))
             throw new ApiException(HttpStatus.CONFLICT, "Không thể xóa quiz đã có lượt làm bài của học viên.");
         record(q, "QUIZ_DELETED");
-        quizQuestions.deleteByQuizId(id);
+        clearLinks(id);
         quizzes.delete(q);
         quizzes.flush();
+    }
+
+    private void clearLinks(Long id) {
+        // Entity deletes keep Hibernate's managed links consistent when updating or deleting a quiz.
+        quizQuestions.deleteAll(quizQuestions.findByQuizIdOrderByPositionAscIdAsc(id));
+        quizQuestions.flush();
     }
 
     private List<QuizQuestion> link(Quiz q, Long courseId, List<QuizQuestionItem> items) {

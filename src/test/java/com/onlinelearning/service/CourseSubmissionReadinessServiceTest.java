@@ -35,8 +35,15 @@ class CourseSubmissionReadinessServiceTest {
         MediaAsset video = new MediaAsset(); video.setResourceType("video");
         lesson = new Lesson(); lesson.setTitle("Introduction"); lesson.setContent("Content");
         lesson.setPosition(1); lesson.setActive(true); lesson.setVideo(video);
-        quiz = new Quiz(); quiz.setTitle("Quiz"); quiz.setActive(true); quiz.setDurationMinutes(10);
+        quiz = new Quiz(); quiz.setId(1L); quiz.setTitle("Quiz"); quiz.setActive(true); quiz.setDurationMinutes(10);
         quiz.setPassRate(50); quiz.setMaxAttempts(1);
+        var question = new Question(); question.setContent("Q"); question.setType("SINGLE_CHOICE");
+        for(int i=0;i<4;i++){var option=new QuestionOption();option.setContent("Option "+i);option.setCorrect(i==0);question.getOptions().add(option);}
+        var link=new QuizQuestion();link.setQuestion(question);link.setPoints(1);
+        TypedQuery<QuizQuestion> items=mock(TypedQuery.class);
+        lenient().when(em.createQuery(anyString(),eq(QuizQuestion.class))).thenReturn(items);
+        lenient().when(items.setParameter("id",1L)).thenReturn(items);
+        lenient().when(items.getResultList()).thenReturn(List.of(link));
         packages = mock(TypedQuery.class); lessons = mock(TypedQuery.class); quizzes = mock(TypedQuery.class);
         when(em.createQuery(anyString(), eq(Long.class))).thenReturn(packages);
         when(packages.setParameter("id", 1L)).thenReturn(packages); when(packages.getSingleResult()).thenReturn(1L);
@@ -110,5 +117,17 @@ class CourseSubmissionReadinessServiceTest {
     @ValueSource(ints={0,100})
     void passRateBoundaryIsAccepted(int passRate) {
         quiz.setPassRate(passRate); assertTrue(service.inspect(course).ready());
+    }
+
+    @Test void multipleQuizzesAndLessonScopedQuizBlockSubmission() {
+        when(quizzes.getResultList()).thenReturn(List.of(quiz,quiz));
+        assertFalse(service.inspect(course).ready());
+        when(quizzes.getResultList()).thenReturn(List.of(quiz));quiz.setLesson(new Lesson());
+        assertFalse(service.inspect(course).ready());
+    }
+
+    @Test void quizWithoutQuestionsCannotBeSubmitted() {
+        when(em.createQuery("",QuizQuestion.class).getResultList()).thenReturn(List.of());
+        assertFalse(service.inspect(course).ready());
     }
 }

@@ -37,7 +37,7 @@ class ExpertQuizIntegrationTests {
     @Test void quizSearchIsPaginatedFilteredAndScopedToOwner() throws Exception {
         Long id = course();
         quizzes.create(id, OWNER, req("Search alpha", null, List.of()));
-        quizzes.create(id, OWNER, req("Search beta", null, List.of()));
+        Quiz legacy = new Quiz(); legacy.setCourse(em.find(Course.class,id)); legacy.setTitle("Search beta");legacy.setActive(true);em.persist(legacy);em.flush();
         assertEquals(2, quizzes.search(OWNER, id, "Search", true, 0, 1).getTotalElements());
         assertEquals(1, quizzes.search(OWNER, id, "Search", true, 0, 1).getNumberOfElements());
         assertEquals(1, quizzes.search(OWNER, id, "alpha", null, 0, 10).getTotalElements());
@@ -85,13 +85,13 @@ class ExpertQuizIntegrationTests {
 
     @Test void crudOrderingQuestionLinkingAndAudit() {
         Long id = course(); Long q1 = question(id, "Q1"); Long q2 = question(id, "Q2"); Long lessonId = lesson(id, "Lesson 1");
-        var created = quizzes.create(id, OWNER, req("Quiz A", lessonId,
+        var created = quizzes.create(id, OWNER, req("Quiz A", null,
             List.of(new QuizQuestionItem(q2, 2, 2), new QuizQuestionItem(q1, 1, 1))));
-        assertEquals(lessonId, created.lessonId());
+        assertNull(created.lessonId());
         assertEquals(List.of(q1, q2), created.questions().stream().map(QuizQuestionResponse::questionId).toList());
 
-        var second = quizzes.create(id, OWNER, req("Quiz B", null, List.of()));
-        assertEquals(2, quizzes.list(id, OWNER).size());
+        assertEquals(409, assertThrows(ApiException.class, () -> quizzes.create(id, OWNER, req("Quiz B", null, List.of()))).status().value());
+        assertEquals(1, quizzes.list(id, OWNER).size());
         assertEquals(created.id(), quizzes.list(id, OWNER).getFirst().id());
 
         var updated = quizzes.update(id, created.id(), OWNER, req("Quiz A2", null, List.of(new QuizQuestionItem(q1, 3, 5))));
@@ -100,9 +100,9 @@ class ExpertQuizIntegrationTests {
         assertEquals(1, updated.questions().size());
         assertEquals(3, updated.questions().getFirst().position());
 
-        quizzes.delete(id, second.id(), OWNER);
-        assertEquals(1, quizzes.list(id, OWNER).size());
-        assertTrue(audit.findAll().stream().anyMatch(l -> "QUIZ_DELETED".equals(l.getAction()) && second.id().toString().equals(l.getTargetId())));
+        quizzes.delete(id, created.id(), OWNER);
+        assertEquals(0, quizzes.list(id, OWNER).size());
+        assertTrue(audit.findAll().stream().anyMatch(l -> "QUIZ_DELETED".equals(l.getAction()) && created.id().toString().equals(l.getTargetId())));
         assertTrue(audit.findAll().stream().anyMatch(l -> "QUIZ_CREATED".equals(l.getAction()) && created.id().toString().equals(l.getTargetId())));
     }
 

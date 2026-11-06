@@ -41,10 +41,8 @@ public class CourseSubmissionReadinessService {
             && l.getVideo() != null && "video".equals(l.getVideo().getResourceType()))));
         var quizzes = em.createQuery("select q from Quiz q where q.course.id=:id", Quiz.class)
             .setParameter("id", course.getId()).getResultList();
-        checks.add(new Check("QUIZZES", "Có ít nhất một quiz; tất cả quiz Active và đã cấu hình thời lượng, tỷ lệ đạt, số lần thử", !quizzes.isEmpty() && quizzes.stream().allMatch(q ->
-            q.isActive() && text(q.getTitle()) && q.getDurationMinutes() != null && q.getDurationMinutes() > 0
-            && q.getPassRate() != null && q.getPassRate() >= 0 && q.getPassRate() <= 100
-            && q.getMaxAttempts() != null && q.getMaxAttempts() > 0)));
+        checks.add(new Check("QUIZZES", "Có đúng một quiz toàn khóa đang hoạt động, đủ cấu hình và câu hỏi hợp lệ",
+            quizzes.size() == 1 && quizReady(quizzes.getFirst())));
         boolean eligible = course.getStatus() == CourseStatus.DRAFT || course.getStatus() == CourseStatus.REJECTED;
         return new Readiness(eligible, eligible && checks.stream().allMatch(Check::complete), List.copyOf(checks));
     }
@@ -53,6 +51,19 @@ public class CourseSubmissionReadinessService {
         var result = inspect(course);
         if (!result.ready()) throw new ApiException(HttpStatus.BAD_REQUEST,
             result.checks().stream().filter(check -> !check.complete()).map(Check::label).findFirst().orElse("Khóa học không thể gửi duyệt."));
+    }
+    private boolean quizReady(Quiz q) {
+        if (!q.isActive() || q.getLesson() != null || !text(q.getTitle()) || q.getDurationMinutes() == null || q.getDurationMinutes() < 1
+            || q.getPassRate() == null || q.getPassRate() < 0 || q.getPassRate() > 100 || q.getMaxAttempts() == null || q.getMaxAttempts() < 1) return false;
+        var items = em.createQuery("select i from QuizQuestion i where i.quiz.id=:id", QuizQuestion.class).setParameter("id", q.getId()).getResultList();
+        return !items.isEmpty() && items.stream().allMatch(i -> {
+            var question = i.getQuestion();
+            long correct = question.getOptions().stream().filter(QuestionOption::isCorrect).count();
+            return i.getPoints() != null && i.getPoints() > 0 && question.isActive() && text(question.getContent())
+                && question.getOptions().size() == 4 && question.getOptions().stream().allMatch(o -> text(o.getContent()))
+                && question.getOptions().stream().map(o -> o.getContent().trim().toLowerCase(java.util.Locale.ROOT)).distinct().count() == 4
+                && ("SINGLE_CHOICE".equals(question.getType()) ? correct == 1 : "MULTIPLE_CHOICE".equals(question.getType()) && correct > 0);
+        });
     }
     private boolean text(String value) { return value != null && !value.isBlank(); }
 }

@@ -20,6 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest @ActiveProfiles("test") @AutoConfigureMockMvc @Transactional
 class CourseModerationIntegrationTests {
+    @org.springframework.test.context.bean.override.mockito.MockitoBean com.onlinelearning.api.ChatMediaStorage storage;
     @Autowired ExpertCourseService expert;
     @Autowired CourseModerationService moderation;
     @Autowired CourseRepository courses;
