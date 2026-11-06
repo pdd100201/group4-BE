@@ -49,10 +49,12 @@ public class CourseCatalogServiceImpl implements CourseCatalogService {
         if (category != null && !category.isBlank()) spec = spec.and((root, query, cb) -> cb.equal(root.get("category"), category.trim()));
         var published = courses.findAll(spec, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "id"));
         if (published.isEmpty()) return List.of();
-        Map<Long, BigDecimal> lowest = packages.findByCourseIdInAndActiveTrue(published.stream().map(c -> c.getId()).toList()).stream()
-            .collect(Collectors.toMap(p -> p.getCourse().getId(), p -> CoursePackageResponse.from(p).finalPrice(), BigDecimal::min));
+        Map<Long, List<BigDecimal>> packagePrices = packages.findByCourseIdInAndActiveTrue(published.stream().map(c -> c.getId()).toList()).stream()
+            .collect(Collectors.groupingBy(p -> p.getCourse().getId(),
+                Collectors.mapping(p -> CoursePackageResponse.from(p).finalPrice(), Collectors.toList())));
         return published.stream().map(c -> { var r = CourseSummaryResponse.from(c);
-            return new CourseSummaryResponse(r.id(), r.title(), r.description(), r.category(), lowest.get(c.getId()), r.thumbnailUrl(), r.expertName()); }).toList();
+            var prices = packagePrices.getOrDefault(c.getId(), List.of()).stream().distinct().sorted().toList();
+            return new CourseSummaryResponse(r.id(), r.title(), r.description(), r.category(), prices.isEmpty() ? null : prices.getFirst(), r.thumbnailUrl(), r.expertName(), prices); }).toList();
     }
 
     @Override

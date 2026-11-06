@@ -42,7 +42,7 @@ public class RoleDataInitializer {
             createDemoUser(users, roles, passwordEncoder, demoPassword,
                     "admin@onlinelearning.local", "Online Learning Admin", "ADMIN");
             createDemoUser(users, roles, passwordEncoder, demoPassword,
-                    "manager@onlinelearning.local", "Online Learning Manager", "MANAGER");
+                        "manager@onlinelearning.local", "Online Learning Manager", "MANAGER");
             createDemoUser(users, roles, passwordEncoder, demoPassword,
                     "expert@onlinelearning.local", "Online Learning Expert", "EXPERT");
             createDemoUser(users, roles, passwordEncoder, demoPassword,

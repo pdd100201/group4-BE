@@ -83,7 +83,7 @@ public class AdminAccountServiceImpl implements AdminAccountService {
         user.setPasswordHash(encoder.encode(UUID.randomUUID().toString() + UUID.randomUUID()));
         user.setEnabled(true);
         user.setBlocked(false);
-        user.setRoles(Set.of(role(normalizeRole(request.roleCode(), true))));
+        user.setRoles(accountRoles(normalizeRole(request.roleCode(), true)));
         users.save(user);
         sendSetupLink(user);
         record(currentAdmin(), user, "ADMIN_ACCOUNT_CREATED", "role=" + request.roleCode());
@@ -105,7 +105,7 @@ public class AdminAccountServiceImpl implements AdminAccountService {
         target.setEmail(email);
         target.setFullName(request.fullName().trim());
         target.setPhone(phone);
-        target.setRoles(Set.of(role(roleCode)));
+        target.setRoles(accountRoles(roleCode));
         record(actor, target, "ADMIN_ACCOUNT_UPDATED", "role=" + roleCode);
         return response(target);
     }
@@ -169,6 +169,11 @@ public class AdminAccountServiceImpl implements AdminAccountService {
     private Role role(String code) {
         return roles.findByCode(code)
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "Role is invalid"));
+    }
+
+    private Set<Role> accountRoles(String code) {
+        return "EXPERT".equals(code) ? new java.util.HashSet<>(Set.of(role("EXPERT"),role("STUDENT")))
+            : new java.util.HashSet<>(Set.of(role(code)));
     }
 
     private String normalizeRole(String value, boolean required) {

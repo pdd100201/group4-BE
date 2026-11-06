@@ -2,9 +2,10 @@ package com.onlinelearning.dto.course;
 
 import com.onlinelearning.entity.Course;
 import java.math.BigDecimal;
+import java.util.List;
 
-public record CourseSummaryResponse(Long id, String title, String description, String category, BigDecimal price, String thumbnailUrl, String expertName) {
+public record CourseSummaryResponse(Long id, String title, String description, String category, BigDecimal price, String thumbnailUrl, String expertName, List<BigDecimal> packagePrices) {
     public static CourseSummaryResponse from(Course course) {
-        return new CourseSummaryResponse(course.getId(), course.getTitle(), course.getDescription(), course.getCategory(), course.getPrice(), course.getThumbnail() == null ? null : course.getThumbnail().getSecureUrl(), course.getExpert().getFullName());
+        return new CourseSummaryResponse(course.getId(), course.getTitle(), course.getDescription(), course.getCategory(), course.getPrice(), course.getThumbnail() == null ? null : course.getThumbnail().getSecureUrl(), course.getExpert().getFullName(), List.of());
     }
 }
