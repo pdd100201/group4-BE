@@ -7,6 +7,7 @@ import com.onlinelearning.config.SepayConfig;
 import com.onlinelearning.dto.payment.SepayWebhook;
 import com.onlinelearning.entity.*;
 import com.onlinelearning.repository.*;
+import com.onlinelearning.service.NotificationEvents;
 import com.onlinelearning.service.impl.PaymentServiceImpl;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
@@ -39,6 +40,7 @@ class ExpireTest {
     static final long TRANSACTION_ID = 5L;
     static final BigDecimal AMOUNT = new BigDecimal("100000");
 
+    @Mock NotificationEvents notificationEvents;
     @Mock CourseRegistrationRepository registrations;
     @Mock CourseRepository courses;
     @Mock PaymentRepository payments;
@@ -59,7 +61,7 @@ class ExpireTest {
 
     @BeforeEach
     void setUpPaymentData() throws JsonProcessingException {
-        service = new PaymentServiceImpl(registrations, courses, payments, transactions,
+        service = new PaymentServiceImpl(notificationEvents, registrations, courses, payments, transactions,
                 users, gateway, config, json, em);
         now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
 
