@@ -8,7 +8,7 @@ Open `/expert/questions`, select an owned course, then use the question list and
 
 The list supports content search, Single Choice/Multiple Choice type, active status and database pagination. Four distinct answer options are required. Single Choice has exactly one correct answer; Multiple Choice has at least one. Explanation and a course-scoped uploaded image are optional. Formatting is safely previewed without executing HTML scripts.
 
-Mutation follows the existing lesson/quiz content policy: owning Expert, Draft or Rejected course. Submitted/published courses are read-only. Retained answers/attempts prevent mutation; any linked quiz prevents deletion, and an active quiz prevents deactivation of its question. Actions are audited.
+The owning Expert may edit existing question content, answer options and explanations in every course state. Retained answers or quiz attempts still prevent these edits. Creating/importing questions, changing their active status (including through an update request), and deleting them require a Draft or Rejected course. Any linked quiz prevents deletion, and an active quiz prevents deactivation of its question. Actions are audited. Quiz editing keeps its separate course-state restrictions.
 
 ## API
 

@@ -53,7 +53,9 @@ public class ExpertQuestionService {
         questions.saveAndFlush(q); record(q, "QUESTION_CREATED"); return QuestionResponse.from(q);
     }
     public QuestionResponse update(Long courseId, Long id, String email, QuestionRequest request) {
-        owned(courseId, email, true); Question q = question(courseId, id); retained(q); validate(request);
+        Course course = ownedCourse(courseId, email, true);
+        Question q = question(courseId, id); retained(q); validate(request);
+        if (request.active() != q.isActive()) requireEditableCourse(course);
         if (!request.active()) activeQuiz(q);
         q.getOptions().clear(); em.flush(); apply(q, request, email);
         questions.saveAndFlush(q); record(q, "QUESTION_UPDATED"); return QuestionResponse.from(q);
@@ -91,11 +93,18 @@ public class ExpertQuestionService {
         return lesson;
     }
     public Course owned(Long courseId, String email, boolean write) {
-        Course course = (write ? courses.findForUpdate(courseId) : courses.findById(courseId)).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));
-        if (!course.getExpert().getEmail().equalsIgnoreCase(email)) throw new ApiException(HttpStatus.FORBIDDEN, "Khóa học không thuộc bạn.");
-        if (write && course.getStatus() != CourseStatus.DRAFT && course.getStatus() != CourseStatus.REJECTED)
-            throw conflict("Chỉ được thay đổi câu hỏi khi khóa học là Nháp hoặc Bị từ chối.");
+        Course course = ownedCourse(courseId, email, write);
+        if (write) requireEditableCourse(course);
         return course;
+    }
+    private Course ownedCourse(Long courseId, String email, boolean lock) {
+        Course course = (lock ? courses.findForUpdate(courseId) : courses.findById(courseId)).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));
+        if (!course.getExpert().getEmail().equalsIgnoreCase(email)) throw new ApiException(HttpStatus.FORBIDDEN, "Khóa học không thuộc bạn.");
+        return course;
+    }
+    private void requireEditableCourse(Course course) {
+        if (course.getStatus() != CourseStatus.DRAFT && course.getStatus() != CourseStatus.REJECTED)
+            throw conflict("Chỉ được thay đổi câu hỏi khi khóa học là Nháp hoặc Bị từ chối.");
     }
     private Question question(Long courseId, Long id) {
         return questions.findByIdAndCourseId(id, courseId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy câu hỏi trong khóa học."));
