@@ -22,6 +22,7 @@ import java.util.*;
 @Service @RequiredArgsConstructor
 public class ChatAttachmentService {
     private final ChatIdentityService identity;
+    private final ChatAccessService access;
     private final ChatAttachmentRepository files;
     private final ChatMessageRepository messages;
     private final UserRepository users;
@@ -29,11 +30,10 @@ public class ChatAttachmentService {
     @Value("${app.chat.storage-dir:./uploads/chat}") private String storageDir;
     @Value("${app.cloudinary.folder:online-learning}") private String cloudFolder;
 
-    public ChatAttachmentResponse upload(MultipartFile file, Long recipientId) {
+    public ChatAttachmentResponse upload(MultipartFile file, Long recipientId, Long courseId) {
         User owner = identity.current();
-        if (Objects.equals(owner.getId(), recipientId)) throw bad("Không thể gửi tệp cho chính mình.");
-        User recipient = recipientId == null ? null : users.findById(recipientId)
-            .filter(u -> u.isEnabled() && !u.isBlocked()).orElseThrow(() -> bad("Người nhận không khả dụng."));
+        Course course = access.requireConversation(owner.getId(), recipientId, courseId);
+        User recipient = users.getReferenceById(recipientId);
         if (file.isEmpty()) throw bad("Hãy chọn ảnh hoặc video.");
         if (file.getSize() > 25L * 1024 * 1024) throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "Video tối đa 25 MB, ảnh tối đa 5 MB.");
         Path path = null;
@@ -48,7 +48,8 @@ public class ChatAttachmentService {
             file.transferTo(path);
             uploaded = storage.upload(path, cloudFolder + "/chat/" + owner.getId(), type.startsWith("video/"));
             ChatAttachment attachment = new ChatAttachment();
-            attachment.setOwner(owner); attachment.setRecipient(recipient); attachment.setStorageKey(UUID.randomUUID().toString());
+            attachment.setOwner(owner); attachment.setRecipient(recipient); attachment.setCourse(course);
+            attachment.setStorageKey(UUID.randomUUID().toString());
             attachment.setCloudPublicId(uploaded.publicId()); attachment.setCloudResourceType(uploaded.resourceType());
             attachment.setCloudFormat(uploaded.format()); attachment.setCloudDeliveryType(uploaded.deliveryType());
             String name = Objects.requireNonNullElse(file.getOriginalFilename(), "attachment").replaceAll("[\\p{Cntrl}\\\\/]", "_");
@@ -70,6 +71,10 @@ public class ChatAttachmentService {
     public Download download(Long id) {
         Long me = identity.current().getId();
         ChatAttachment attachment = files.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tệp không tồn tại."));
+        if (attachment.getRecipient() == null)
+            throw new ApiException(HttpStatus.FORBIDDEN, "Tệp không thuộc cuộc trò chuyện trong khóa học.");
+        Long peer = attachment.getOwner().getId().equals(me) ? attachment.getRecipient().getId() : attachment.getOwner().getId();
+        access.requireConversation(me, peer, attachment.getCourse() == null ? ChatAccessService.STAFF_CONVERSATION : attachment.getCourse().getId());
         if (!attachment.getOwner().getId().equals(me)) {
             // A staged upload is owner-only. Other users need membership of its committed message.
             ChatMessage message = messages.findByAttachmentId(id).orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "Bạn không có quyền xem tệp."));

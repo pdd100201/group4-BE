@@ -9,8 +9,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface UserRepository extends JpaRepository<User, Long> {
-    @Query("select u from User u where u.enabled = true and u.blocked = false and u.id <> :me and lower(u.fullName) like lower(concat('%', :query, '%')) escape '!'")
-    Page<User> chatDirectory(@Param("me") Long me, @Param("query") String query, Pageable pageable);
     Optional<User> findByEmailIgnoreCase(String email);
     Optional<User> findByGoogleSubject(String googleSubject);
     boolean existsByEmailIgnoreCase(String email);
@@ -30,4 +28,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("select count(distinct u.id) from User u join u.roles role where role.code = 'STUDENT' and u.enabled = true and u.blocked = false")
     long countActiveStudents();
+
+    @Query("select distinct u from User u join u.roles role where role.code = :roleCode and u.enabled = true and u.blocked = false")
+    java.util.List<User> findActiveByRole(@Param("roleCode") String roleCode);
 }

@@ -23,7 +23,7 @@ public class ChatSocketHandler extends TextWebSocketHandler {
     private final ChatService chat;
     private final Map<String, Client> clients = new ConcurrentHashMap<>();
 
-    public record Command(String type, String token, Long recipientId, String content, String clientMessageId, Long attachmentId) {}
+    public record Command(String type, String token, Long recipientId, Long courseId, String content, String clientMessageId, Long attachmentId) {}
     private static final class Client {
         final WebSocketSession socket;
         final Instant connected = Instant.now();
@@ -65,7 +65,7 @@ public class ChatSocketHandler extends TextWebSocketHandler {
             if ("PING".equals(command.type())) { write(client, Map.of("type", "PONG")); return; }
             if (!"SEND".equals(command.type())) throw new IllegalArgumentException();
             // Service transaction has committed before any socket receives the message.
-            ChatMessageResponse saved = chat.send(client.userId, command.recipientId(), command.content(), command.clientMessageId(), command.attachmentId());
+            ChatMessageResponse saved = chat.send(client.userId, command.recipientId(), command.courseId(), command.content(), command.clientMessageId(), command.attachmentId());
             broadcast(saved);
         } catch (ApiException ex) {
             if (ex.status().value() == 401) { session.close(CloseStatus.POLICY_VIOLATION); return; }

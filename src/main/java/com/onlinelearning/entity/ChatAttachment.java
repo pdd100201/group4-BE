@@ -8,6 +8,7 @@ import java.time.Instant;
 public class ChatAttachment extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY, optional = false) private User owner;
     @ManyToOne(fetch = FetchType.LAZY) private User recipient;
+    @ManyToOne(fetch = FetchType.LAZY) private Course course;
     @Column(nullable = false, length = 36, unique = true) private String storageKey;
     @Column(nullable = false, length = 200) private String originalName;
     @Column(nullable = false, length = 80) private String contentType;
