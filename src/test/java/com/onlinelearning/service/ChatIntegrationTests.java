@@ -109,9 +109,33 @@ class ChatIntegrationTests {
             .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].peer.id").value(student.user().getId()));
         mvc.perform(get("/api/v1/chat/users").header("Authorization", "Bearer " + admin.token()))
             .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(0));
+        registration.setStatus(RegistrationStatus.PENDING_PAYMENT);
+        registrations.saveAndFlush(registration);
+        mvc.perform(get("/api/v1/chat/users").header("Authorization", "Bearer " + student.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].peer.id").value(expert.user().getId()));
+        chat.send(student.user().getId(), expert.user().getId(), first.getId(), "Enrollment question", UUID.randomUUID().toString());
+        registration.setStatus(RegistrationStatus.ACTIVE);
         registration.setValidUntil(Instant.now().minusSeconds(1)); registrations.saveAndFlush(registration);
         mvc.perform(get("/api/v1/chat/users").header("Authorization", "Bearer " + student.token()))
             .andExpect(status().isOk()).andExpect(jsonPath("$.content.length()").value(0));
+    }
+
+    @Test void expertsAndManagersCanExchangeMessagesWithoutACourse() throws Exception {
+        Actor expert = actor("EXPERT"), manager = actor("MANAGER"), student = actor("STUDENT");
+        Long expertId = expert.user().getId(), managerId = manager.user().getId();
+        String requestId = UUID.randomUUID().toString();
+        var sent = chat.send(expertId, managerId, 0L, "Staff question", requestId);
+        assertEquals(0L, sent.courseId());
+        assertEquals(sent.id(), chat.send(expertId, managerId, 0L, "Staff question", requestId).id());
+        chat.send(managerId, expertId, 0L, "Staff reply", UUID.randomUUID().toString());
+        mvc.perform(get("/api/v1/chat/messages").param("peerId", managerId.toString()).param("courseId", "0")
+            .header("Authorization", "Bearer " + expert.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+        mvc.perform(get("/api/v1/chat/messages/search").param("peerId", expertId.toString()).param("courseId", "0")
+            .param("query", "Staff question").header("Authorization", "Bearer " + manager.token()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1));
+        assertThrows(com.onlinelearning.exception.ApiException.class,
+            () -> chat.send(student.user().getId(), managerId, 0L, "Unauthorized", UUID.randomUUID().toString()));
     }
 
     @Test void historySearchAndSendAreIsolatedByCourseAndEnrollment() throws Exception {

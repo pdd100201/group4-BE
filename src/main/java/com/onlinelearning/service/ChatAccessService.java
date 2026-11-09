@@ -26,6 +26,7 @@ import java.util.Locale;
 
 @Service @RequiredArgsConstructor
 public class ChatAccessService {
+    public static final long STAFF_CONVERSATION = 0L;
     private final CourseRegistrationRepository registrations;
     private final CourseRepository courses;
     private final UserRepository users;
@@ -39,9 +40,21 @@ public class ChatAccessService {
         List<CourseRegistration> available = new ArrayList<>(registrations.findChatRegistrationsForStudent(userId, now));
         available.addAll(registrations.findChatRegistrationsForExpert(userId, now));
         var distinct = new LinkedHashMap<String, ChatContactResponse>();
+        for (String role : List.of("EXPERT", "MANAGER")) {
+            String peerRole = "EXPERT".equals(role) ? "MANAGER" : "EXPERT";
+            if (!hasRole(me, role)) continue;
+            for (User peer : users.findActiveByRole(peerRole)) {
+                if (!peer.getId().equals(userId))
+                    distinct.putIfAbsent("0:" + peer.getId(),
+                        new ChatContactResponse(STAFF_CONVERSATION, "Trao đổi với " + peer.getFullName(), ChatUserResponse.from(peer)));
+            }
+        }
         for (CourseRegistration registration : available) {
             Course course = registration.getCourse();
-            User peer = course.getExpert().getId().equals(me.getId()) ? registration.getStudent() : course.getExpert();
+            User expert = course.getExpert();
+            User student = registration.getStudent();
+            if (!hasRole(expert, "EXPERT") || !hasRole(student, "STUDENT")) continue;
+            User peer = expert.getId().equals(me.getId()) ? student : expert;
             if (!peer.isEnabled() || peer.isBlocked() || peer.getId().equals(me.getId())) continue;
             distinct.putIfAbsent(course.getId() + ":" + peer.getId(),
                 new ChatContactResponse(course.getId(), course.getTitle(), ChatUserResponse.from(peer)));
@@ -62,19 +75,28 @@ public class ChatAccessService {
 
     @Transactional(readOnly = true)
     public Course requireConversation(Long userId, Long peerId, Long courseId) {
-        if (peerId == null || courseId == null || peerId <= 0 || courseId <= 0 || peerId.equals(userId))
+        if (peerId == null || courseId == null || peerId <= 0 || courseId < 0 || peerId.equals(userId))
             throw badRequest("Cuộc trò chuyện không hợp lệ.");
         User me = activeUser(userId);
-        activeUser(peerId);
+        User peer = activeUser(peerId);
+        if (courseId == STAFF_CONVERSATION) {
+            if ((hasRole(me, "EXPERT") && hasRole(peer, "MANAGER"))
+                || (hasRole(me, "MANAGER") && hasRole(peer, "EXPERT"))) return null;
+            throw forbidden();
+        }
         Course course = courses.findById(courseId)
             .orElseThrow(() -> badRequest("Khóa học không tồn tại."));
         Long expertId = course.getExpert().getId();
         Long studentId;
-        if (expertId.equals(userId)) studentId = peerId;
-        else if (expertId.equals(peerId)) studentId = me.getId();
+        if (expertId.equals(userId) && hasRole(me, "EXPERT") && hasRole(peer, "STUDENT")) studentId = peerId;
+        else if (expertId.equals(peerId) && hasRole(peer, "EXPERT") && hasRole(me, "STUDENT")) studentId = me.getId();
         else throw forbidden();
-        if (registrations.countCurrentAccess(studentId, courseId, Instant.now()) == 0) throw forbidden();
+        if (registrations.countChatRegistrations(studentId, courseId, Instant.now()) == 0) throw forbidden();
         return course;
+    }
+
+    private static boolean hasRole(User user, String role) {
+        return user.getRoles().stream().anyMatch(value -> role.equals(value.getCode()));
     }
 
     private User activeUser(Long id) {
@@ -84,5 +106,5 @@ public class ChatAccessService {
     }
 
     private static ApiException badRequest(String message) { return new ApiException(HttpStatus.BAD_REQUEST, message); }
-    private static ApiException forbidden() { return new ApiException(HttpStatus.FORBIDDEN, "Bạn không có quyền trò chuyện trong khóa học này."); }
+    private static ApiException forbidden() { return new ApiException(HttpStatus.FORBIDDEN, "Bạn không có quyền truy cập cuộc trò chuyện này."); }
 }
