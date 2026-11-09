@@ -73,7 +73,7 @@ public class ChatService {
             var old = existing.get();
             Long oldRecipient = old.getRecipient() == null ? null : old.getRecipient().getId();
             Long oldAttachment = old.getAttachment() == null ? null : old.getAttachment().getId();
-            Long oldCourse = old.getCourse() == null ? null : old.getCourse().getId();
+            Long oldCourse = old.getCourse() == null ? ChatAccessService.STAFF_CONVERSATION : old.getCourse().getId();
             if (!Objects.equals(oldRecipient, recipientId) || !Objects.equals(oldCourse, courseId)
                 || !old.getContent().equals(content) || !Objects.equals(oldAttachment, attachmentId))
                 throw new ApiException(HttpStatus.CONFLICT, "Mã tin nhắn đã được sử dụng.");
@@ -84,7 +84,7 @@ public class ChatService {
             // Upload ownership alone is insufficient: the target conversation must also match.
             ChatAttachment file = attachments.findById(attachmentId).orElseThrow(() -> badRequest("Tệp không tồn tại."));
             Long target = file.getRecipient() == null ? null : file.getRecipient().getId();
-            Long fileCourse = file.getCourse() == null ? null : file.getCourse().getId();
+            Long fileCourse = file.getCourse() == null ? ChatAccessService.STAFF_CONVERSATION : file.getCourse().getId();
             if (!file.getOwner().getId().equals(senderId) || !Objects.equals(target, recipientId)
                 || !Objects.equals(fileCourse, courseId))
                 throw new ApiException(HttpStatus.FORBIDDEN, "Tệp không thuộc cuộc trò chuyện này.");

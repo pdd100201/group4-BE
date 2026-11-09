@@ -14,7 +14,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @EntityGraph(attributePaths = {"sender", "recipient", "course"})
     @Query("""
         select m from ChatMessage m where
-        m.course.id = :courseId and
+        (m.course.id = :courseId or (:courseId = 0 and m.course is null)) and
         ((m.sender.id = :me and m.recipient.id = :peer) or (m.sender.id = :peer and m.recipient.id = :me))
         and (:before is null or m.id < :before) order by m.id desc
         """)
@@ -23,7 +23,7 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @EntityGraph(attributePaths = {"sender", "recipient", "course"})
     @Query("""
         select m from ChatMessage m where
-        m.course.id = :courseId and
+        (m.course.id = :courseId or (:courseId = 0 and m.course is null)) and
         ((m.sender.id = :me and m.recipient.id = :peer) or (m.sender.id = :peer and m.recipient.id = :me))
         and lower(m.content) like lower(:pattern) escape '!'
         and (:before is null or m.id < :before) order by m.id desc

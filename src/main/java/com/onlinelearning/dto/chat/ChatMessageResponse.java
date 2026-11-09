@@ -8,7 +8,7 @@ public record ChatMessageResponse(Long id, ChatUserResponse sender, Long recipie
     public static ChatMessageResponse from(ChatMessage message) {
         return new ChatMessageResponse(message.getId(), ChatUserResponse.from(message.getSender()),
             message.getRecipient() == null ? null : message.getRecipient().getId(),
-            message.getCourse() == null ? null : message.getCourse().getId(),
+            message.getCourse() == null ? 0L : message.getCourse().getId(),
             message.getClientMessageId(), message.getContent(), message.getSentAt(),
             message.getAttachment() == null ? null : ChatAttachmentResponse.from(message.getAttachment()));
     }
