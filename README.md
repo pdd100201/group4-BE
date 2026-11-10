@@ -23,20 +23,11 @@ Request path: `SecurityConfig/JwtAuthenticationFilter → Controller → Service
 ## Run locally
 
 1. Configure `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and `JWT_SECRET` as environment variables, in the IntelliJ run configuration, or in a backend `.env` using Java properties syntax. `.env.example` is a reference, not the loaded file.
-2. Create the `online_learning_system` MySQL database, or grant the user permission for `createDatabaseIfNotExist=true`.
+2. Create an empty MySQL schema named `online_learning_system_new` and import the consolidated schema and data dump from `../outputs/database-exports/online_learning_system_full_20261110_090622.sql`. For a different schema name, set `DB_URL` to match. Import before starting the backend.
 3. Set SMTP variables (`MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM`, and credentials if required) to enable password reset emails.
 4. Run `./mvnw.cmd spring-boot:run` on Windows. Open `http://localhost:8080/swagger-ui/index.html` for the API explorer.
 
-## Question Bank Legacy FK
-
-If saving a question fails for a newly created course, inspect the FKs on
-`questions.course_id`. The ORM uses `course`, not the old `courses` table.
-Back up the database and run
-`database/migrations/V012__align_question_course_reference.sql` to remove only
-the obsolete FK after checking every existing question against the current
-course table. The migration is repeatable and stops on orphan IDs; do not delete
-questions or disable FK checks to bypass the problem. Quiz/student history and
-all payment records remain unchanged.
+The consolidated dump is the baseline for local setup. Hibernate uses `ddl-auto: update` in development. Older implementation notes may mention SQL migrations that were consolidated into the dump.
 
 ## Automatic Local Ngrok
 
@@ -71,19 +62,3 @@ MAIL_FROM=your-account@gmail.com
 ```
 
 The backend uses `smtp.gmail.com:587` with authenticated STARTTLS. Spring Boot does not automatically load the `.env.example` file; it is only a configuration reference. Never commit the App Password.
-
-The current development configuration uses Hibernate `ddl-auto: update`. Existing databases with incompatible ID/foreign-key types need an explicit, reviewed migration; Hibernate cannot safely reconcile those changes automatically. Use versioned migrations and `validate` for production.
-
-### Existing course / lesson progress schema
-
-Before starting the updated backend on an existing database, back it up and run
-`database/migrations/V011__course_timestamps_progress_registration.sql` in MySQL
-Workbench against the configured database. This adds and backfills missing course
-timestamps before enforcing `NOT NULL`, and aligns the progress registration FK
-with the current `course_registration` table. Unknown historical timestamps use
-the migration time; valid timestamps and payment data remain unchanged.
-
-The migration can be rerun after successful completion. It deliberately stops
-before changing data if existing progress references a legacy registration table
-or contains orphan IDs: those rows need reviewed ID mapping, not deletion. Do not
-run with `--force`, disable FK checks, or use `ddl-auto=create` to bypass errors.
