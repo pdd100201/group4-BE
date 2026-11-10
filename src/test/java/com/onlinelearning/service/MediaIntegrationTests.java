@@ -50,6 +50,20 @@ class MediaIntegrationTests {
                 .andExpect(status().isCreated()).andExpect(jsonPath("url").value("https://res.cloudinary.com/test/asset"));
         verify(storage, times(4)).upload(any(Path.class), anyString(), eq(false));
     }
+    @Test void expertCanUploadThumbnailBeforeCreatingDraft() {
+        mock(false);
+        assertEquals(403, assertThrows(ApiException.class,
+            () -> media.upload("student@onlinelearning.local", image(), "COURSE_IMAGE", null)).status().value());
+        var uploaded = media.upload(OWNER, image(), "COURSE_IMAGE", null);
+        assertNull(assets.findById(uploaded.id()).orElseThrow().getCourse());
+        var request = new CourseRequest("New course", "Description", "Java", BigDecimal.ZERO, uploaded.id());
+        var draft = courses.create(OWNER, request);
+        em.flush();
+        em.clear();
+        assertEquals(uploaded.url(), courses.get(draft.id(), OWNER).thumbnailUrl());
+        assertEquals(draft.id(), assets.findById(uploaded.id()).orElseThrow().getCourse().getId());
+        assertEquals(403, assertThrows(ApiException.class, () -> courses.create(OWNER, request)).status().value());
+    }
     @Test void courseThumbnailAndLessonVideoPersistById() {
         mock(false); mock(true); Long course = course();
         var image = media.upload(OWNER, image(), "COURSE_IMAGE", course);

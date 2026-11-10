@@ -52,13 +52,26 @@ public class NotificationEvents {
    }
    case "COURSE_APPROVED" -> send(c.getExpert(),eventKey,"COURSE_APPROVED","REVIEW","Khóa học đã được duyệt",title+" đã được xuất bản.",expertLink);
    case "COURSE_REJECTED" -> send(c.getExpert(),eventKey,"COURSE_REJECTED","REVIEW","Khóa học bị từ chối",title+". Lý do: "+reason,expertLink);
-   case "COURSE_ARCHIVED","COURSE_RESTORED" -> {
-    boolean archived=action.equals("COURSE_ARCHIVED");
-    String headline=archived?"Khóa học tạm ngừng hiển thị":"Khóa học đã được khôi phục";
+   case "COURSE_ARCHIVED" -> {
+    String headline="Khóa học tạm ngừng hiển thị";
+    List<User> students=em.createQuery("""
+     select distinct r.student from CourseRegistration r where r.course.id=:courseId
+     and r.student.enabled=true and r.student.blocked=false and r.student.id<>:expertId
+     """,User.class).setParameter("courseId",c.getId()).setParameter("expertId",c.getExpert().getId()).getResultList();
+    send(c.getExpert(),eventKey,action,"COURSE",headline,title+". Lý do: "+reason+
+     (students.isEmpty()?"":" Mở Trò chuyện để trao đổi với học viên về chính sách hoàn tiền."),
+     students.isEmpty()?expertLink:"/chat");
+    for(User student:students)send(student,eventKey,action,"COURSE",headline,
+     title+". Lý do: "+reason+" Mở Trò chuyện với giảng viên để trao đổi về chính sách hoàn tiền.",
+     "/chat?courseId="+c.getId()+"&peerId="+c.getExpert().getId());
+   }
+   case "COURSE_DELETED" -> send(c.getExpert(),eventKey,action,"COURSE","Khóa học đã bị xóa",
+    title+". Lý do: "+reason,"/expert/courses");
+   case "COURSE_RESTORED" -> {
+    String headline="Khóa học đã được khôi phục";
     send(c.getExpert(),eventKey,action,"COURSE",headline,title+". Lý do: "+reason,expertLink);
-    for(User student:enrolled(c.getId()))send(student,eventKey,action,"COURSE",headline,title+". "+(archived?
-     "Quyền đăng ký và lịch sử thanh toán vẫn được lưu. Vui lòng theo dõi cập nhật từ hệ thống.":"Bạn có thể tiếp tục học nếu đăng ký vẫn còn hiệu lực."),
-     archived?"/student/registrations":"/student/courses/"+c.getId()+"/learn");
+    for(User student:enrolled(c.getId()))send(student,eventKey,action,"COURSE",headline,
+     title+". Bạn có thể tiếp tục học nếu đăng ký vẫn còn hiệu lực.","/student/courses/"+c.getId()+"/learn");
    }
    default -> { }
   }

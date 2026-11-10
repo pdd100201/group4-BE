@@ -33,7 +33,7 @@ public class CertificateController {
  @GetMapping({"/api/v1/admin/certificates","/api/v1/manager/certificates"})
  public Page<CertificateService.View> list(Authentication a,@RequestParam(defaultValue="") String search,@RequestParam(defaultValue="all") String status,@RequestParam(required=false) Long courseId,@RequestParam(defaultValue="0") int page){return certificates.management(a.getName(),search,status,courseId,page);}
  @GetMapping({"/api/v1/admin/certificates/courses","/api/v1/manager/certificates/courses"})
- public Page<CertificateService.CourseOption> options(Authentication a,@RequestParam(defaultValue="") String search,@RequestParam(defaultValue="0") int page){return certificates.courseOptions(a.getName(),search,page);}
+ public Page<CertificateService.CourseOption> options(Authentication a,@RequestParam(defaultValue="") String search,@RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="false") boolean eligibleOnly){return certificates.courseOptions(a.getName(),search,page,eligibleOnly);}
  @GetMapping({"/api/v1/admin/certificates/courses/{courseId}/policy","/api/v1/manager/certificates/courses/{courseId}/policy"})
  public CertificateService.PolicyOptions policy(Authentication a,@PathVariable Long courseId){return certificates.policy(a.getName(),courseId);}
  @PostMapping({"/api/v1/admin/certificates/courses/{courseId}/policy","/api/v1/manager/certificates/courses/{courseId}/policy"})

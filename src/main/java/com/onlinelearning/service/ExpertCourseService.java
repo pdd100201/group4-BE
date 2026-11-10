@@ -46,7 +46,7 @@ public class ExpertCourseService {
         c.setExpert(user(email));
         apply(c, request);
         courses.save(c);
-        if (request.thumbnailMediaId() != null) c.setThumbnail(media.attachment(request.thumbnailMediaId(), email, c.getId(), "COURSE_IMAGE"));
+        if (request.thumbnailMediaId() != null) c.setThumbnail(media.bindNewCourseThumbnail(request.thumbnailMediaId(), c));
         record(c, "COURSE_CREATED");
         return ExpertCourseResponse.from(c);
     }

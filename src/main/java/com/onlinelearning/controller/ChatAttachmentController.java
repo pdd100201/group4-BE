@@ -12,8 +12,8 @@ import java.nio.charset.StandardCharsets;
 public class ChatAttachmentController {
     private final ChatAttachmentService service;
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE) @ResponseStatus(HttpStatus.CREATED)
-    public ChatAttachmentResponse upload(@RequestParam MultipartFile file, @RequestParam(required = false) Long recipientId) {
-        return service.upload(file, recipientId);
+    public ChatAttachmentResponse upload(@RequestParam MultipartFile file, @RequestParam Long recipientId, @RequestParam Long courseId) {
+        return service.upload(file, recipientId, courseId);
     }
     @GetMapping("/{id}")
     public ResponseEntity<Resource> download(@PathVariable Long id) {

@@ -59,40 +59,72 @@ public class CertificateDocumentService {
   try{
    g.scale(3,3);g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
    g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
-   g.setColor(Color.WHITE);g.fillRect(0,0,842,595);
-   g.setColor(new Color(239,246,255));g.fillPolygon(new int[]{0,240,0},new int[]{0,0,240},3);
-   g.setColor(new Color(248,250,252));g.fillPolygon(new int[]{842,842,610},new int[]{595,363,595},3);
-   g.setColor(new Color(37,99,235));g.setStroke(new BasicStroke(2));g.drawRect(25,25,792,545);
-   g.setColor(new Color(211,224,244));g.setStroke(new BasicStroke(.7f));g.drawRect(33,33,776,529);
-   g.setColor(new Color(37,99,235));g.fillRoundRect(62,54,35,35,9,9);
-   g.setFont(font(Font.BOLD,24));g.setColor(Color.WHITE);g.drawString("E",71,80);
-   g.setColor(new Color(23,43,77));g.setFont(font(Font.BOLD,19));g.drawString("EduLearn",109,78);
-   block(g,c.issuerName(),300,52,475,35,12,2,new Color(70,91,120),false);
-   block(g,"CHỨNG NHẬN HOÀN THÀNH",70,124,702,55,31,1,new Color(23,43,77),true);
-   block(g,"Trao cho học viên",90,190,662,25,14,1,new Color(100,116,139),false);
-   block(g,c.studentName(),90,221,662,63,34,3,new Color(29,78,216),true);
-   block(g,"Đã hoàn thành các yêu cầu của khóa học",90,300,662,24,14,1,new Color(100,116,139),false);
-   block(g,c.courseTitle(),90,334,662,69,25,3,new Color(23,43,77),true);
-   g.setColor(new Color(219,230,246));g.drawLine(70,425,772,425);
-   g.setColor(new Color(100,116,139));g.setFont(font(Font.PLAIN,10));g.drawString("NGÀY CẤP",73,450);
-   g.setFont(font(Font.BOLD,13));g.setColor(new Color(23,43,77));
-   g.drawString(DateTimeFormatter.ofPattern("dd/MM/yyyy").withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(c.issuedAt()),73,469);
-   g.setFont(font(Font.PLAIN,9));g.setColor(new Color(100,116,139));g.drawString("MÃ CHỨNG NHẬN",73,493);
-   g.setFont(font(Font.BOLD,10));g.setColor(new Color(23,43,77));g.drawString(c.code(),73,511);
-   block(g,c.issuerName(),340,449,310,54,14,3,new Color(23,43,77),true);
-   block(g,"Đơn vị cấp chứng nhận",340,505,310,18,10,1,new Color(100,116,139),false);
+   Color ink=new Color(36,42,48), muted=new Color(83,89,96), rule=new Color(153,160,165);
+   g.setColor(new Color(255,254,251));g.fillRect(0,0,842,595);
+   g.clipRect(12,12,818,571);
+   guilloche(g,174,496,245);
+   guilloche(g,671,300,218);
+   g.setClip(null);
+   g.setColor(rule);g.setStroke(new BasicStroke(.75f));g.drawRect(12,12,818,571);
+   g.setColor(new Color(222,221,214));g.drawRect(16,16,810,563);
+   for(int x:new int[]{6,832})for(int y:new int[]{6,585}){
+    g.setColor(rule);g.drawRect(x,y,4,4);
+   }
+
+   Polygon ribbon=new Polygon(new int[]{560,757,757,658,560},new int[]{12,12,377,451,377},5);
+   g.setPaint(new GradientPaint(560,0,new Color(239,241,244),757,0,new Color(220,226,233)));
+   g.fill(ribbon);
+   g.setClip(ribbon);
+   g.setColor(new Color(139,151,166,24));g.setStroke(new BasicStroke(.35f));
+   for(int x=563;x<757;x+=4)g.drawLine(x,12,x,451);
+   g.setClip(null);
+   g.setColor(rule);g.setStroke(new BasicStroke(.75f));g.draw(ribbon);
+   block(g,"CHỨNG CHỈ",570,66,177,30,20,1,ink,false,true);
+   block(g,"HOÀN THÀNH KHÓA HỌC",570,99,177,36,12,2,ink,false,true);
+   g.setColor(new Color(94,106,120));g.setStroke(new BasicStroke(1));
+   g.drawOval(591,213,134,134);g.drawOval(596,218,124,124);g.drawOval(610,232,96,96);
+   for(int i=0;i<72;i++){
+    double angle=i*Math.PI/36;
+    g.fillOval(657+(int)Math.round(71*Math.cos(angle)),279+(int)Math.round(71*Math.sin(angle)),3,3);
+   }
+   block(g,"EDULEARN",608,253,100,34,16,1,ink,true,true);
+   block(g,"CHỨNG NHẬN",608,286,100,24,10,1,muted,false,true);
+
+   block(g,"EduLearn",72,58,450,43,31,1,new Color(35,78,159),true,false);
+   String issued=DateTimeFormatter.ofPattern("dd/MM/yyyy").withZone(ZoneId.of("Asia/Ho_Chi_Minh")).format(c.issuedAt());
+   block(g,"Ngày cấp "+issued,72,161,450,24,11,1,muted,false,false);
+   block(g,c.studentName(),72,192,450,76,33,4,ink,true,false);
+   block(g,"Đã hoàn thành khóa học",72,277,450,21,13,1,muted,false,false);
+   block(g,c.courseTitle(),72,306,450,78,22,4,ink,true,false);
+   g.setColor(rule);g.drawLine(72,444,280,444);
+   block(g,c.issuerName(),72,451,443,54,17,3,ink,true,false);
+   block(g,"Đơn vị cấp chứng chỉ",72,507,443,20,11,1,muted,false,false);
    boolean[][] qr=CertificateQr.encode(verificationUrl(c.code()));
-   int module=1,x0=695,y0=443,quiet=4;
+   int module=1,x0=626,y0=472,quiet=4;
    g.setColor(Color.WHITE);g.fillRect(x0,y0,(CertificateQr.SIZE+quiet*2)*module,(CertificateQr.SIZE+quiet*2)*module);
    g.setColor(new Color(15,23,42));
    for(int y=0;y<qr.length;y++)for(int x=0;x<qr[y].length;x++)if(qr[y][x])g.fillRect(x0+(x+quiet)*module,y0+(y+quiet)*module,module,module);
-   g.setFont(font(Font.PLAIN,8));g.setColor(new Color(100,116,139));g.drawString("Quét QR để xác minh",689,524);
-   block(g,"Chứng nhận ghi nhận hoàn thành các yêu cầu học tập trên hệ thống.",74,539,690,15,9,1,new Color(100,116,139),false);
+   block(g,"Quét QR để xác minh",578,539,160,15,9,1,muted,false,true);
+   block(g,c.code(),578,554,160,15,8,1,ink,false,true);
   }finally{g.dispose();}
   return page;
  }
- private static Font font(int style,int size){return new Font(Font.SANS_SERIF,style,size);}
- private static void block(Graphics2D g,String text,int x,int y,int width,int height,int initialSize,int maxLines,Color color,boolean bold){
+ private static void guilloche(Graphics2D g,int cx,int cy,int radius){
+  g.setColor(new Color(180,139,70,30));
+  g.setStroke(new BasicStroke(.55f));
+  for(int ring=0;ring<25;ring++){
+   var path=new java.awt.geom.Path2D.Double();
+   for(int i=0;i<=360;i++){
+    double angle=i*Math.PI/180, phase=ring*.15;
+    double distance=radius-ring*3.6+14*Math.cos(9*angle+phase)+5*Math.sin(17*angle-phase);
+    double x=cx+distance*Math.cos(angle),y=cy+distance*Math.sin(angle);
+    if(i==0)path.moveTo(x,y);else path.lineTo(x,y);
+   }
+   path.closePath();g.draw(path);
+  }
+ }
+ private static Font font(int style,int size){return new Font(Font.SERIF,style,size);}
+ private static void block(Graphics2D g,String text,int x,int y,int width,int height,int initialSize,int maxLines,Color color,boolean bold,boolean centered){
   List<String> lines=List.of();int size=initialSize;
   for(;size>=8;size--){
    g.setFont(font(bold?Font.BOLD:Font.PLAIN,size));
@@ -103,7 +135,7 @@ public class CertificateDocumentService {
   if(size<8)throw new IllegalArgumentException("Certificate text does not fit");
   g.setColor(color);FontMetrics fm=g.getFontMetrics();
   int baseline=y+(height-lines.size()*fm.getHeight())/2+fm.getAscent();
-  for(String line:lines){g.drawString(line,x+(width-fm.stringWidth(line))/2,baseline);baseline+=fm.getHeight();}
+  for(String line:lines){g.drawString(line,centered?x+(width-fm.stringWidth(line))/2:x,baseline);baseline+=fm.getHeight();}
  }
  private static List<String> wrap(FontMetrics fm,String text,int width){
   var lines=new ArrayList<String>();StringBuilder line=new StringBuilder();

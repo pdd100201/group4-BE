@@ -82,4 +82,29 @@ class PublicCourseIntegrationTests {
         mvc.perform(get("/api/v1/public/courses").param("search", "%"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
     }
+    @Test void studentCatalogExcludesCurrentAndPendingRegistrations() throws Exception {
+        Course pending = create("Catalog pending", CourseStatus.PUBLISHED);
+        Course active = create("Catalog active", CourseStatus.PUBLISHED);
+        Course open = create("Catalog open", CourseStatus.PUBLISHED);
+        String email = "student@onlinelearning.local";
+        User student = em.createQuery("select u from User u where u.email=:email", User.class)
+            .setParameter("email", email).getSingleResult();
+        for (Course course : java.util.List.of(pending, active)) {
+            var registration = new CourseRegistration();
+            registration.setCourse(course);
+            registration.setStudent(student);
+            registration.setStatus(course == pending ? RegistrationStatus.PENDING_PAYMENT : RegistrationStatus.ACTIVE);
+            if (course == active) {
+                registration.setValidFrom(java.time.Instant.now().minusSeconds(60));
+                registration.setValidUntil(java.time.Instant.now().plusSeconds(3600));
+            }
+            em.persist(registration);
+        }
+        mvc.perform(get("/api/v1/public/courses").param("search", "Catalog")
+            .with(org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user(email).roles("STUDENT")))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(1))
+            .andExpect(jsonPath("$[0].id").value(open.getId().intValue()));
+        mvc.perform(get("/api/v1/public/courses").param("search", "Catalog"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(3));
+    }
 }

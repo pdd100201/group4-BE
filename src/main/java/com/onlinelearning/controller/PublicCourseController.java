@@ -17,8 +17,11 @@ public class PublicCourseController {
 
     @GetMapping
     public List<CourseSummaryResponse> list(@org.springframework.web.bind.annotation.RequestParam(defaultValue="") String search,
-        @org.springframework.web.bind.annotation.RequestParam(defaultValue="") String category) {
-        return courses.listPublished(search, category);
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue="") String category,
+        org.springframework.security.core.Authentication actor) {
+        String studentEmail = actor != null && actor.getAuthorities().stream()
+            .anyMatch(role -> "ROLE_STUDENT".equals(role.getAuthority())) ? actor.getName() : null;
+        return courses.listPublished(search, category, studentEmail);
     }
 
     @GetMapping("/{id}")

@@ -25,8 +25,7 @@ class LessonRequestValidationTest {
             new Case("content 8001 characters",new LessonRequest("Title","C".repeat(8001),1,true),"content"),
             new Case("position null",new LessonRequest("Title","Content",null,true),"position"),
             new Case("position zero",new LessonRequest("Title","Content",0,true),"position"),
-            new Case("position negative",new LessonRequest("Title","Content",-1,true),"position"),
-            new Case("active null",new LessonRequest("Title","Content",1,null),"active")
+            new Case("position negative",new LessonRequest("Title","Content",-1,true),"position")
         );
     }
     @ParameterizedTest(name="{0}") @MethodSource("invalidRequests")
@@ -38,7 +37,9 @@ class LessonRequestValidationTest {
         return Stream.of(new LessonRequest("T","C",1,true),
             new LessonRequest("T".repeat(255),"C".repeat(8000),Integer.MAX_VALUE,false),
             new LessonRequest("Bài học Java","Nội dung bài học",2,false,null),
-            new LessonRequest("Title","Content",1,true,10L));
+            new LessonRequest("Title","Content",1,true,10L),
+            // Visibility is controlled by the course workflow; this legacy input is optional.
+            new LessonRequest("Title","Content",1,null));
     }
     @ParameterizedTest @MethodSource("validRequests")
     void acceptsValidBoundariesAndOptionalVideo(LessonRequest request) { assertTrue(validator.validate(request).isEmpty()); }

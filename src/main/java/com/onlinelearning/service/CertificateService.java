@@ -14,11 +14,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.*;
 
 @Service @RequiredArgsConstructor @Transactional(readOnly=true)
 public class CertificateService {
+ private static final String CODE_ALPHABET="0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+ private static final SecureRandom CODE_RANDOM=new SecureRandom();
  private final UserRepository users;
  private final CourseRepository courses;
  private final CourseRegistrationRepository registrations;
@@ -51,7 +54,7 @@ public class CertificateService {
  public View managementDetail(String email,Long id){manager(email);return view(certificate(id));}
  public PublicView verify(String code){
   String normalized=code==null?"":code.strip().toUpperCase(Locale.ROOT);
-  if(!normalized.matches("[0-9A-F]{32}"))throw missing();
+  if(!normalized.matches("[0-9A-HJKMNP-TV-Z]{8}|[0-9A-F]{32}"))throw missing();
   var c=certificates.findByCode(normalized).orElseThrow(this::missing);
   return new PublicView(c.getCode(),c.getStatus(),c.getStudentNameSnapshot(),c.getCourseTitleSnapshot(),c.getIssuerNameSnapshot(),c.getIssuedAt(),c.getRevokedAt());
  }
@@ -83,7 +86,7 @@ public class CertificateService {
   CertificatePolicy p=policies.findFirstByCourseIdOrderByVersionDesc(course.getId()).orElseThrow();
   var reg=registrations.findAccessRegistration(u.getId(),course.getId(),Instant.now(),PageRequest.of(0,1)).getFirst();
   var cert=new CourseCertificate();cert.setStudent(u);cert.setCourse(course);cert.setRegistration(reg);cert.setPolicy(p);
-  cert.setCode(UUID.randomUUID().toString().replace("-","").toUpperCase(Locale.ROOT));
+  cert.setCode(newCode());
   cert.setStudentNameSnapshot(u.getFullName());cert.setCourseTitleSnapshot(course.getTitle());
   cert.setExpertNameSnapshot(course.getExpert().getFullName());cert.setIssuerNameSnapshot(p.getIssuerName());
   var evidence=new LinkedHashMap<String,Object>();evidence.put("policyId",p.getId());evidence.put("policyVersion",p.getVersion());
@@ -95,6 +98,15 @@ public class CertificateService {
   notifications.send(u.getId(),"certificate-issued:"+cert.getId(),"CERTIFICATE_ISSUED","CERTIFICATE","Bạn đã nhận chứng nhận hoàn thành",
    course.getTitle()+" · "+p.getIssuerName(),"/certificates?certificate="+cert.getId());
   return new Eligibility(check.courseId(),check.courseTitle(),true,true,List.of(),check.lessons(),check.quizzes(),view(cert));
+ }
+ private String newCode(){
+  for(int attempt=0;attempt<10;attempt++){
+   var code=new StringBuilder(8);
+   for(int i=0;i<8;i++)code.append(CODE_ALPHABET.charAt(CODE_RANDOM.nextInt(CODE_ALPHABET.length())));
+   String candidate=code.toString();
+   if(!certificates.existsByCode(candidate))return candidate;
+  }
+  throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE,"Không thể tạo mã chứng chỉ. Vui lòng thử lại.");
  }
  private Eligibility inspect(User u,Course c){
   var prior=certificates.findByStudentIdAndCourseId(u.getId(),c.getId()).orElse(null);
@@ -122,10 +134,22 @@ public class CertificateService {
   return new Eligibility(c.getId(),c.getTitle(),true,reasons.isEmpty(),reasons,lessonChecks,quizChecks,null);
  }
 
- public Page<CourseOption> courseOptions(String email,String search,int page){
+ public Page<CourseOption> courseOptions(String email,String search,int page,boolean eligibleOnly){
   manager(email);String term=term(search);
   Specification<Course> spec=(r,q,cb)->term.isEmpty()?cb.conjunction():cb.like(cb.lower(r.get("title")),pattern(term),'!');
-  return courses.findAll(spec,paging(page,10)).map(c->new CourseOption(c.getId(),c.getTitle(),c.getStatus().name(),c.getExpert().getFullName()));
+  Pageable pageable=paging(page,10);
+  if(!eligibleOnly)return courses.findAll(spec,pageable).map(this::courseOption);
+
+  Specification<Course> published=(r,q,cb)->cb.equal(r.get("status"),CourseStatus.PUBLISHED);
+  List<Course> eligible=courses.findAll(spec.and(published),pageable.getSort()).stream()
+   .filter(c->!activeLessons(c.getId()).isEmpty()&&quizRows(c.getId()).stream().anyMatch(this::ready))
+   .toList();
+  List<CourseOption> options=eligible.stream().skip(pageable.getOffset()).limit(pageable.getPageSize())
+   .map(this::courseOption).toList();
+  return new PageImpl<>(options,pageable,eligible.size());
+ }
+ private CourseOption courseOption(Course c){
+  return new CourseOption(c.getId(),c.getTitle(),c.getStatus().name(),c.getExpert().getFullName());
  }
  public PolicyOptions policy(String email,Long courseId){
   manager(email);Course c=courses.findById(courseId).orElseThrow(this::missing);

@@ -155,6 +155,28 @@ class NotificationIntegrationTests {
   restoration.restore(f.course().getId(),ADMIN,"Ready");
   assertEquals(1,count(STUDENT,"COURSE_RESTORED"));assertEquals(1,count(EXPERT,"COURSE_RESTORED"));
  }
+ @Test void archivedCourseNoticeOpensRefundChatForPendingRegistration() throws Exception {
+  var f=fixture();
+  Long courseId=f.course().getId(), expertId=actor(EXPERT).getId();
+  moderation.archive(courseId,MANAGER,"Maintenance");
+  var notice=notifications.list(STUDENT,false,"COURSE",0,20).getContent().stream()
+   .filter(n->n.type().equals("COURSE_ARCHIVED")).findFirst().orElseThrow();
+  assertEquals("/chat?courseId="+courseId+"&peerId="+expertId,notice.link());
+  assertEquals(1,count(EXPERT,"COURSE_ARCHIVED"));
+  mvc.perform(get("/api/v1/chat/contact").with(user(STUDENT).roles("STUDENT"))
+   .param("courseId",courseId.toString()).param("peerId",expertId.toString()))
+   .andExpect(status().isOk());
+  mvc.perform(get("/api/v1/chat/contact").with(user(MANAGER).roles("MANAGER"))
+   .param("courseId",courseId.toString()).param("peerId",expertId.toString()))
+   .andExpect(status().isForbidden());
+ }
+ @Test void deletingCourseWithoutRegistrationsNotifiesItsExpert() {
+  var f=fixture();
+  registrations.delete(f.registration());em.flush();
+  moderation.delete(f.course().getId(),ADMIN,"Cleanup");
+  assertEquals(1,count(EXPERT,"COURSE_DELETED"));
+  assertEquals(0,count(STUDENT,"COURSE_DELETED"));
+ }
  @Test void reviewDecisionNotifiesExpert(){
   var f=fixture();f.course().setStatus(CourseStatus.PENDING_REVIEW);em.flush();workflow.reject(f.course().getId(),MANAGER,"Needs revision");
   assertEquals(1,count(EXPERT,"COURSE_REJECTED"));

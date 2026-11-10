@@ -28,7 +28,10 @@ public class MediaService {
         User user = users.findByEmailIgnoreCase(email).orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Tài khoản không tồn tại."));
         boolean video = "LESSON_VIDEO".equals(purpose);
         Course course = null;
-        if ("COURSE_IMAGE".equals(purpose) || "QUESTION_IMAGE".equals(purpose) || video) {
+        if ("COURSE_IMAGE".equals(purpose) && courseId == null) {
+            if (user.getRoles().stream().noneMatch(r -> "EXPERT".equals(r.getCode())))
+                throw new ApiException(HttpStatus.FORBIDDEN, "Chỉ Expert được tải ảnh bìa khóa học lên.");
+        } else if ("COURSE_IMAGE".equals(purpose) || "QUESTION_IMAGE".equals(purpose) || video) {
             if (courseId == null || user.getRoles().stream().noneMatch(r -> "EXPERT".equals(r.getCode()))) throw new ApiException(HttpStatus.FORBIDDEN, "Chỉ Expert sở hữu khóa học được tải nội dung lên.");
             course = courses.findForUpdate(courseId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));
             if (!course.getExpert().getId().equals(user.getId())) throw new ApiException(HttpStatus.FORBIDDEN, "Khóa học không thuộc bạn.");
@@ -64,6 +67,16 @@ public class MediaService {
             if (!(video ? mp4 || webm : png || jpg || webp)) throw new ApiException(HttpStatus.BAD_REQUEST, video ? "Chỉ hỗ trợ video MP4/WebM." : "Chỉ hỗ trợ ảnh JPG/PNG/WebP.");
         } catch (IOException e) { throw new ApiException(HttpStatus.BAD_REQUEST, "Không thể đọc tệp."); }
     }
+    public MediaAsset bindNewCourseThumbnail(Long id, Course course) {
+        MediaAsset asset = assets.findForUpdate(id)
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tệp không tồn tại."));
+        if (!asset.getOwner().getId().equals(course.getExpert().getId())
+            || !"COURSE_IMAGE".equals(asset.getPurpose()) || asset.getCourse() != null)
+            throw new ApiException(HttpStatus.FORBIDDEN, "Ảnh bìa không thuộc bạn hoặc đã được gắn vào khóa học.");
+        asset.setCourse(course);
+        return asset;
+    }
+
     public MediaAsset attachment(Long id, String email, Long courseId, String purpose) {
         if (id == null) return null;
         MediaAsset a = assets.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tệp không tồn tại."));

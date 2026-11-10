@@ -64,7 +64,7 @@ class CertificateIntegrationTests {
  long certCount(Long course){return em.createQuery("select count(c) from CourseCertificate c where c.course.id=:id",Long.class).setParameter("id",course).getSingleResult();}
 
  @Test void issuesOnceWithEvidenceAuditAndNotification(){
-  var f=fixture();var c=issue(f);assertEquals("ISSUED",c.status());assertTrue(c.code().matches("[0-9A-F]{32}"));
+  var f=fixture();var c=issue(f);assertEquals("ISSUED",c.status());assertTrue(c.code().matches("[0-9A-HJKMNP-TV-Z]{8}"));
   assertEquals(c.id(),service.checkAndIssue(STUDENT,f.course().getId()).certificate().id());assertEquals(1,certCount(f.course().getId()));
   assertEquals(1,service.history(ADMIN,c.id(),0).getTotalElements());
   var row=certificates.findById(c.id()).orElseThrow();assertTrue(row.getEvidenceSnapshot().contains("quizAttempts"));
@@ -154,6 +154,21 @@ class CertificateIntegrationTests {
  @Test void blockedUsersCannotReadOrIssue(){
   var f=fixture();var c=issue(f);actor(STUDENT).setBlocked(true);em.flush();
   assertThrows(ApiException.class,()->service.mineDetail(STUDENT,c.id()));assertThrows(ApiException.class,()->service.checkAndIssue(STUDENT,f.course().getId()));
+ }
+ @Test void listsOnlyCoursesReadyToConfigureWhenRequested(){
+  var f=fixture();
+  String title=f.course().getTitle();
+  assertEquals(List.of(f.course().getId()),service.courseOptions(MANAGER,title,0,true).map(CertificateService.CourseOption::id).getContent());
+
+  f.course().setStatus(CourseStatus.DRAFT);em.flush();
+  assertTrue(service.courseOptions(MANAGER,title,0,true).isEmpty());
+  assertEquals(1,service.courseOptions(MANAGER,title,0,false).getTotalElements());
+
+  f.course().setStatus(CourseStatus.PUBLISHED);f.lesson().setActive(false);em.flush();
+  assertTrue(service.courseOptions(MANAGER,title,0,true).isEmpty());
+
+  f.lesson().setActive(true);f.quiz().setActive(false);em.flush();
+  assertTrue(service.courseOptions(MANAGER,title,0,true).isEmpty());
  }
  @Test void listsFilterByStatusCourseAndEscapedSearch(){
   var f=fixture();var c=issue(f);

@@ -105,7 +105,11 @@ class PaymentMergeIntegrationTests {
     @Test void cancelledRegistrationIsNotReactivatedByLateTransfer() throws Exception {
         var qr=payments.initiate(STUDENT,registrationId);
         var r=rows.findById(registrationId).orElseThrow();r.setStatus(RegistrationStatus.CANCELLED);em.flush();
-        confirm(qr,1001);assertEquals(RegistrationStatus.CANCELLED,r.getStatus());assertNull(r.getValidFrom());
+        mvc.perform(post(WEBHOOK).header("Authorization",KEY).contentType("application/json")
+            .content(event(qr,1001,"90000","TESTBANK","in"))).andExpect(status().isConflict());
+        em.clear();r=rows.findById(registrationId).orElseThrow();
+        assertEquals(RegistrationStatus.CANCELLED,r.getStatus());assertNull(r.getValidFrom());
+        assertNotEquals(PaymentStatus.SUCCEEDED,paymentRows.findByRegistrationId(registrationId).orElseThrow().getStatus());
         mvc.perform(get("/api/v1/student/courses").with(user(STUDENT).roles("STUDENT"))).andExpect(jsonPath("content").isEmpty());
     }
     @Test void lifetimePaymentHasNoArtificialExpiry() throws Exception {

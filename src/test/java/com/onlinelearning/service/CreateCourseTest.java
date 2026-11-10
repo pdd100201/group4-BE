@@ -62,7 +62,7 @@ class CreateCourseTest {
         image.setOwner(owner);
         image.setPurpose("COURSE_IMAGE");
         image.setResourceType("image");
-        when(media.attachment(IMAGE_ID, EMAIL, newCourseId, "COURSE_IMAGE")).thenReturn(image);
+        when(media.bindNewCourseThumbnail(eq(IMAGE_ID), any(Course.class))).thenReturn(image);
 
         var result = service.create(EMAIL, input);
 
@@ -78,7 +78,7 @@ class CreateCourseTest {
         assertSame(owner, saved.getValue().getExpert());
         assertEquals(EXPERT_ID, saved.getValue().getExpert().getId());
         assertSame(image, saved.getValue().getThumbnail());
-        verify(media).attachment(IMAGE_ID, EMAIL, newCourseId, "COURSE_IMAGE");
+        verify(media).bindNewCourseThumbnail(eq(IMAGE_ID), any(Course.class));
         ArgumentCaptor<AuditLog> audit = ArgumentCaptor.forClass(AuditLog.class);
         verify(auditLogs).save(audit.capture());
         assertEquals("COURSE_CREATED", audit.getValue().getAction());

@@ -8,9 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.http.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
 
 @RestController @RequiredArgsConstructor @RequestMapping("/api/v1")
 public class ExpertApplicationController {
@@ -19,10 +17,6 @@ public class ExpertApplicationController {
     @GetMapping("/expert-applications/mine") public ResponseEntity<ExpertApplicationService.View> mine(Authentication actor){
         var view=service.mine(actor.getName());return view==null?ResponseEntity.noContent().build():ResponseEntity.ok(view);
     }
-    @PostMapping(value="/expert-applications",consumes=MediaType.MULTIPART_FORM_DATA_VALUE)
-    @ResponseStatus(HttpStatus.CREATED)
-    public ExpertApplicationService.View submit(Authentication actor,@Valid @RequestPart("details") ExpertApplicationService.Input details,
-        @RequestPart(value="files",required=false) List<MultipartFile> files){return service.submit(actor.getName(),details,files);}
     @GetMapping("/admin/expert-applications") public Page<ExpertApplicationService.View> list(Authentication actor,
         @RequestParam(defaultValue="PENDING") String status,@RequestParam(defaultValue="") String search,@RequestParam(defaultValue="0") int page){return service.list(actor.getName(),status,search,page);}
     @GetMapping("/admin/expert-applications/{id}") public ExpertApplicationService.View detail(Authentication actor,@PathVariable Long id){return service.detail(actor.getName(),id);}

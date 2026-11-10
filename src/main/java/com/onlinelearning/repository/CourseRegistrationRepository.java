@@ -8,6 +8,17 @@ import org.springframework.data.jpa.repository.*;
 
 public interface CourseRegistrationRepository extends JpaRepository<CourseRegistration, Long>,
         JpaSpecificationExecutor<CourseRegistration> {
+    @EntityGraph(attributePaths = {"student", "course", "course.expert", "student.roles", "course.expert.roles"})
+    @Query("select r from CourseRegistration r where r.student.id=:studentId and (r.course.status=com.onlinelearning.entity.CourseStatus.ARCHIVED or (r.status=com.onlinelearning.entity.RegistrationStatus.ACTIVE and r.validFrom<=:now and (r.lifetimeSnapshot=true or r.validUntil>:now)))")
+    java.util.List<CourseRegistration> findChatRegistrationsForStudent(@org.springframework.data.repository.query.Param("studentId") Long studentId,
+        @org.springframework.data.repository.query.Param("now") java.time.Instant now);
+
+    @EntityGraph(attributePaths = {"student", "course", "course.expert", "student.roles", "course.expert.roles"})
+    @Query("select r from CourseRegistration r where r.course.expert.id=:expertId and (r.course.status=com.onlinelearning.entity.CourseStatus.ARCHIVED or (r.status=com.onlinelearning.entity.RegistrationStatus.ACTIVE and r.validFrom<=:now and (r.lifetimeSnapshot=true or r.validUntil>:now)))")
+    java.util.List<CourseRegistration> findChatRegistrationsForExpert(@org.springframework.data.repository.query.Param("expertId") Long expertId,
+        @org.springframework.data.repository.query.Param("now") java.time.Instant now);
+    boolean existsByStudentIdAndCourseId(Long studentId, Long courseId);
+
     @Query("select r from CourseRegistration r where r.student.id=:studentId and r.course.id=:courseId and r.status=com.onlinelearning.entity.RegistrationStatus.ACTIVE and r.validFrom<=:now and (r.lifetimeSnapshot=true or r.validUntil>:now) order by r.id desc")
     java.util.List<CourseRegistration> findAccessRegistration(@org.springframework.data.repository.query.Param("studentId") Long studentId,
         @org.springframework.data.repository.query.Param("courseId") Long courseId,@org.springframework.data.repository.query.Param("now") java.time.Instant now,Pageable pageable);

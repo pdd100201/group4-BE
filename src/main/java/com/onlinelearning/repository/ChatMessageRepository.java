@@ -11,32 +11,22 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     Optional<ChatMessage> findBySenderIdAndClientMessageId(Long senderId, String clientMessageId);
     Optional<ChatMessage> findByAttachmentId(Long attachmentId);
 
-    @EntityGraph(attributePaths = {"sender", "recipient"})
-    @Query("select m from ChatMessage m where m.recipient is null and (:before is null or m.id < :before) order by m.id desc")
-    List<ChatMessage> community(@Param("before") Long before, Pageable pageable);
-
-    @EntityGraph(attributePaths = {"sender", "recipient"})
+    @EntityGraph(attributePaths = {"sender", "recipient", "course"})
     @Query("""
         select m from ChatMessage m where
+        m.course.id = :courseId and
         ((m.sender.id = :me and m.recipient.id = :peer) or (m.sender.id = :peer and m.recipient.id = :me))
         and (:before is null or m.id < :before) order by m.id desc
         """)
-    List<ChatMessage> privateHistory(@Param("me") Long me, @Param("peer") Long peer,
+    List<ChatMessage> privateHistory(@Param("me") Long me, @Param("peer") Long peer, @Param("courseId") Long courseId,
                                     @Param("before") Long before, Pageable pageable);
-    @EntityGraph(attributePaths = {"sender", "recipient"})
-    @Query("""
-        select m from ChatMessage m where m.recipient is null
-        and lower(m.content) like lower(:pattern) escape '!'
-        and (:before is null or m.id < :before) order by m.id desc
-        """)
-    List<ChatMessage> searchCommunity(String pattern, Long before, Pageable pageable);
-
-    @EntityGraph(attributePaths = {"sender", "recipient"})
+    @EntityGraph(attributePaths = {"sender", "recipient", "course"})
     @Query("""
         select m from ChatMessage m where
+        m.course.id = :courseId and
         ((m.sender.id = :me and m.recipient.id = :peer) or (m.sender.id = :peer and m.recipient.id = :me))
         and lower(m.content) like lower(:pattern) escape '!'
         and (:before is null or m.id < :before) order by m.id desc
         """)
-    List<ChatMessage> searchPrivate(Long me, Long peer, String pattern, Long before, Pageable pageable);
+    List<ChatMessage> searchPrivate(Long me, Long peer, Long courseId, String pattern, Long before, Pageable pageable);
 }

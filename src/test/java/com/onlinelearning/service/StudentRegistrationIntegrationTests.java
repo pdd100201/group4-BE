@@ -61,7 +61,7 @@ class StudentRegistrationIntegrationTests {
         var first=registrations.register(STUDENT,request(offers.get(0).id()));
         packages.update(id,EXPERT,prices("200000","20",true));
         var again=registrations.register(STUDENT,request(offers.get(1).id()));
-        assertEquals(first.id(),again.id());assertTrue(again.reused());assertEquals(first.packageId(),again.packageId());assertEquals(first.amount(),again.amount());
+        assertEquals(first.id(),again.id());assertTrue(again.reused());assertEquals(first.packageId(),again.packageId());assertEquals(0,first.amount().compareTo(again.amount()));
         assertEquals(1,repository.findAll((root,q,cb)->cb.equal(root.get("course").get("id"),id)).size());
     }
     @Test void activeMonthlyAndLifetimeAccessBlockRegistrationButExpiredAllowsNew() {

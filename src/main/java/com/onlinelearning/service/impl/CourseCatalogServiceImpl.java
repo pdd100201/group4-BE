@@ -8,6 +8,9 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.Tuple;
 import org.springframework.http.HttpStatus;
 import com.onlinelearning.entity.CourseStatus;
+import com.onlinelearning.entity.CourseRegistration;
+import com.onlinelearning.entity.RegistrationStatus;
+import java.time.Instant;
 import com.onlinelearning.repository.CourseRepository;
 import com.onlinelearning.repository.CoursePackageRepository;
 import com.onlinelearning.dto.course.CoursePackageResponse;
@@ -35,6 +38,11 @@ public class CourseCatalogServiceImpl implements CourseCatalogService {
 
     @Override
     public List<CourseSummaryResponse> listPublished(String search, String category) {
+        return listPublished(search, category, null);
+    }
+
+    @Override
+    public List<CourseSummaryResponse> listPublished(String search, String category, String studentEmail) {
         if ((search != null && search.length() > 255) || (category != null && category.length() > 255))
             throw new ApiException(HttpStatus.BAD_REQUEST, "Từ khóa hoặc danh mục quá dài.");
         org.springframework.data.jpa.domain.Specification<com.onlinelearning.entity.Course> spec = (root, query, cb) -> {
@@ -47,6 +55,22 @@ public class CourseCatalogServiceImpl implements CourseCatalogService {
             spec = spec.and((root, query, cb) -> cb.like(cb.lower(root.get("title")), pattern, '\\'));
         }
         if (category != null && !category.isBlank()) spec = spec.and((root, query, cb) -> cb.equal(root.get("category"), category.trim()));
+        if (studentEmail != null) {
+            Instant now = Instant.now();
+            spec = spec.and((root, query, cb) -> {
+                var existing = query.subquery(Long.class);
+                var registration = existing.from(CourseRegistration.class);
+                var current = cb.and(cb.equal(registration.get("status"), RegistrationStatus.ACTIVE),
+                    cb.lessThanOrEqualTo(registration.<Instant>get("validFrom"), now),
+                    cb.or(cb.isTrue(registration.get("lifetimeSnapshot")),
+                        cb.greaterThan(registration.<Instant>get("validUntil"), now)));
+                existing.select(registration.get("id")).where(
+                    cb.equal(registration.get("course"), root),
+                    cb.equal(cb.lower(registration.get("student").get("email")), studentEmail.toLowerCase(java.util.Locale.ROOT)),
+                    cb.or(current, cb.equal(registration.get("status"), RegistrationStatus.PENDING_PAYMENT)));
+                return cb.not(cb.exists(existing));
+            });
+        }
         var published = courses.findAll(spec, org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "id"));
         if (published.isEmpty()) return List.of();
         Map<Long, List<BigDecimal>> packagePrices = packages.findByCourseIdInAndActiveTrue(published.stream().map(c -> c.getId()).toList()).stream()
