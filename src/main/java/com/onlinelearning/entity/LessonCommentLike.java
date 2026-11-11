@@ -7,6 +7,6 @@ import lombok.*;
     @UniqueConstraint(name="uq_lesson_comment_like", columnNames={"comment_id","student_id"}))
 @Getter @Setter @NoArgsConstructor
 public class LessonCommentLike extends BaseEntity {
-    @ManyToOne(optional=false, fetch=FetchType.LAZY) private LessonComment comment;
+    @ManyToOne(optional=false, fetch=FetchType.LAZY) private DiscussionEntry comment;
     @ManyToOne(optional=false, fetch=FetchType.LAZY) private User student;
 }

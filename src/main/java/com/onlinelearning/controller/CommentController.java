@@ -16,6 +16,15 @@ public class CommentController {
         @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="10") int size) {
         return comments.list(postId, actor == null ? null : actor.getName(), page, size);
     }
+    @GetMapping("/public/posts/{postId}/comments/{id}/replies")
+    public BlogPage<CommentResponse> replies(@PathVariable Long postId,@PathVariable Long id,Authentication actor,
+        @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="10") int size) {
+        return comments.replies(postId,id,actor==null?null:actor.getName(),page,size);
+    }
+    @PostMapping("/student/posts/{postId}/comments/{id}/replies") @ResponseStatus(HttpStatus.CREATED)
+    public CommentResponse reply(@PathVariable Long postId,@PathVariable Long id,@Valid @RequestBody CommentRequest request,Authentication actor) {
+        return comments.reply(postId,id,actor.getName(),request);
+    }
     @GetMapping("/public/posts/{postId}/comments/{id}")
     public CommentResponse detail(@PathVariable Long postId, @PathVariable Long id, Authentication actor) {
         return comments.detail(postId, id, actor == null ? null : actor.getName());
@@ -37,6 +46,11 @@ public class CommentController {
     @PutMapping("/student/comments/{id}")
     public CommentResponse update(@PathVariable Long id, @Valid @RequestBody CommentRequest request, Authentication actor) {
         return comments.update(id, actor.getName(), request);
+    }
+    public record LikeRequest(@jakarta.validation.constraints.NotNull Boolean liked) {}
+    @PutMapping("/comments/{id}/like")
+    public CommentResponse like(@PathVariable Long id,@Valid @RequestBody LikeRequest request,Authentication actor) {
+        return comments.like(id,actor.getName(),request.liked());
     }
     @DeleteMapping("/comments/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
     public void delete(@PathVariable Long id, Authentication actor) { comments.delete(id, actor.getName()); }
