@@ -89,14 +89,15 @@ public class StudentQuizService {
     private QuizAnswer answer(QuizAttempt a,com.onlinelearning.entity.Question q) {
         return a.getAnswers().stream().filter(v->v.getQuestion().getId().equals(q.getId())).findFirst().orElseGet(()->{var v=new QuizAnswer();v.setAttempt(a);v.setQuestion(q);a.getAnswers().add(v);return v;});
     }
-    private List<Long> selected(QuizAttempt a,Long id){return a.getAnswers().stream().filter(v->v.getQuestion().getId().equals(id)).findFirst().map(v->v.getSelectedOptions().stream().map(o->o.getQuestionOption().getId()).toList()).orElse(List.of());}
+    private List<Long> selected(QuizAttempt a,Long id){return a.getAnswers().stream().filter(v->v.getQuestion().getId().equals(id)).findFirst().map(v->v.getSelectedOptions().stream().map(QuizSelection::questionOptionId).toList()).orElse(List.of());}
     private void setAnswer(QuizAttempt a,Answer input) {
         var item=items(a.getQuiz()).stream().filter(i->i.getQuestion().getId().equals(input.questionId())).findFirst().orElseThrow(()->bad("Câu hỏi không thuộc bài kiểm tra."));
         var question=item.getQuestion();Set<Long> ids=new HashSet<>(input.optionIds());
         if(ids.size()!=input.optionIds().size()||"SINGLE_CHOICE".equals(question.getType())&&ids.size()>1)throw bad("Danh sách đáp án không hợp lệ.");
         if(!question.getOptions().stream().map(QuestionOption::getId).collect(java.util.stream.Collectors.toSet()).containsAll(ids))throw bad("Đáp án không thuộc câu hỏi.");
-        var value=answer(a,question);value.getSelectedOptions().clear();em.flush();
-        for(var option:options(question))if(ids.contains(option.getId())){var link=new QuizAnswerOption();link.setQuizAnswer(value);link.setQuestionOption(option);value.getSelectedOptions().add(link);}
+        var value=answer(a,question);value.getSelectedOptions().clear();
+        var now=Instant.now();
+        for(var option:options(question))if(ids.contains(option.getId()))value.getSelectedOptions().add(new QuizSelection(null,option.getId(),now,now));
         attempts.saveAndFlush(a);
     }
     private Instant deadline(QuizAttempt a){return a.getStartedAt().plusSeconds((long)(a.getDurationSnapshot()==null?a.getQuiz().getDurationMinutes():a.getDurationSnapshot())*60);}

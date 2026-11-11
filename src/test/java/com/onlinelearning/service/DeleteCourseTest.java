@@ -33,7 +33,6 @@ class DeleteCourseTest {
         "select count(a) from QuizAttempt a where a.quiz.course.id=:id",
         "select count(p) from StudentLessonProgress p where p.lesson.course.id=:id",
         "select count(a) from QuizAnswer a where a.question.course.id=:id",
-        "select count(o) from QuizAnswerOption o where o.questionOption.question.course.id=:id",
         "select count(l) from QuizQuestion l where l.question.course.id=:id and l.quiz.course.id<>:id"
     };
     @Mock CourseRepository courses;

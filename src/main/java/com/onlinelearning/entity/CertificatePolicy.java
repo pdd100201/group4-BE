@@ -15,10 +15,10 @@ public class CertificatePolicy extends BaseEntity {
  @Column(nullable=false,length=64) private String contentFingerprint;
  @ManyToOne(optional=false,fetch=FetchType.LAZY) private User configuredBy;
  @Column(nullable=false) private Instant createdAt=Instant.now();
- @ElementCollection @CollectionTable(name="certificate_policy_lessons",joinColumns=@JoinColumn(name="policy_id"))
- @MapKeyColumn(name="lesson_id") @Column(name="lesson_title",nullable=false,length=255)
+ @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+ @Column(columnDefinition="json",nullable=false)
  private Map<Long,String> requiredLessons=new LinkedHashMap<>();
- @ElementCollection @CollectionTable(name="certificate_policy_quizzes",joinColumns=@JoinColumn(name="policy_id"))
- @MapKeyColumn(name="quiz_id") @Column(name="quiz_title",nullable=false,length=255)
+ @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+ @Column(columnDefinition="json",nullable=false)
  private Map<Long,String> requiredQuizzes=new LinkedHashMap<>();
 }

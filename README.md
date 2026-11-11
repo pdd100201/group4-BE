@@ -23,11 +23,11 @@ Request path: `SecurityConfig/JwtAuthenticationFilter → Controller → Service
 ## Run locally
 
 1. Configure `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, and `JWT_SECRET` as environment variables, in the IntelliJ run configuration, or in a backend `.env` using Java properties syntax. `.env.example` is a reference, not the loaded file.
-2. Create an empty MySQL schema named `online_learning_system_new` and import the consolidated schema and data dump from `../outputs/database-exports/online_learning_system_full_20261110_090622.sql`. For a different schema name, set `DB_URL` to match. Import before starting the backend.
+2. For the 30-table schema, follow [database/compact30/README.md](database/compact30/README.md). Run `00_update_existing_database.sql` to update the existing `online_learning_new` database before starting this backend. Keep `DB_URL` pointing at `online_learning_new`.
 3. Set SMTP variables (`MAIL_HOST`, `MAIL_PORT`, `MAIL_FROM`, and credentials if required) to enable password reset emails.
 4. Run `./mvnw.cmd spring-boot:run` on Windows. Open `http://localhost:8080/swagger-ui/index.html` for the API explorer.
 
-The consolidated dump is the baseline for local setup. Hibernate uses `ddl-auto: update` in development. Older implementation notes may mention SQL migrations that were consolidated into the dump.
+Hibernate now uses `ddl-auto: validate`: schema changes must be applied through the supplied SQL. Older dumps and SQL examples refer to the previous table layout and must not be imported directly into the compact schema.
 
 ## Automatic Local Ngrok
 

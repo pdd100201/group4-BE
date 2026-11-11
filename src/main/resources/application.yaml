@@ -8,12 +8,12 @@ spring:
       max-file-size: 100MB
       max-request-size: 101MB
   datasource:
-    url: ${DB_URL:jdbc:mysql://localhost:3306/online_learning_system_new?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    url: ${DB_URL:jdbc:mysql://localhost:3306/online_learning_new?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:}
+    password: ${DB_PASSWORD:123456}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     open-in-view: false
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
