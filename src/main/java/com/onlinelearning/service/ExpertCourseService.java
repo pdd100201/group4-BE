@@ -21,6 +21,7 @@ public class ExpertCourseService {
     private final EntityManager entityManager;
     private final MediaService media;
     private final CoursePackageRepository packages;
+    private final CourseReviewChangesService reviewChanges;
 
     @Transactional(readOnly=true)
     public Page<ExpertCourseResponse> list(String email, String search, String category, CourseStatus status, int page, int size) {
@@ -54,9 +55,11 @@ public class ExpertCourseService {
     public ExpertCourseResponse update(Long id, String email, CourseRequest request) {
         Course c = owned(id, email, true);
         editable(c);
+        reviewChanges.capturePublished(c);
         apply(c, request);
-        record(c, "COURSE_UPDATED");
         c.setThumbnail(media.attachment(request.thumbnailMediaId(), email, id, "COURSE_IMAGE"));
+        c.requireReviewAfterEdit();
+        record(c, "COURSE_UPDATED");
         return ExpertCourseResponse.from(c);
     }
 

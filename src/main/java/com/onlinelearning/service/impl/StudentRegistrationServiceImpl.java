@@ -53,6 +53,11 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
         return StudentRegistrationResponse.from(r,false);
     }
 
+    public StudentRegistrationResponse cancel(String email,Long id) {
+        payments.cancel(email,id);
+        return get(email,id);
+    }
+
     @Transactional(readOnly=true)
     public StudentRegistrationResponse get(String email,Long id) {
         User student=student(email);

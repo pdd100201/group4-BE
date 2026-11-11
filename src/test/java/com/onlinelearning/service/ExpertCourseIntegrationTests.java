@@ -21,6 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest @ActiveProfiles("test") @Transactional @AutoConfigureMockMvc
 class ExpertCourseIntegrationTests {
     @Autowired ExpertCourseService expert;
+    @Autowired CoursePackageService packageService;
     @Autowired CourseService workflow;
     @Autowired CourseRepository courses;
     @Autowired UserRepository users;
@@ -28,20 +29,51 @@ class ExpertCourseIntegrationTests {
     @Autowired MockMvc mvc;
     private static final String OWNER = "expert@onlinelearning.local";
     private CourseRequest input(String title) { return new CourseRequest(title, "Nội dung khóa học", "Java", new BigDecimal("100000")); }
-    @Test void publishedCourseCanBeEditedImmediatelyButNotDeletedByExpert() throws Exception {
+    @Test void publishedCourseChangesRequireFreshApprovalBeforeTheyArePublic() throws Exception {
         var created = expert.create(OWNER, input("Published original"));
-        var course = courses.findById(created.id()).orElseThrow(); course.setStatus(CourseStatus.PUBLISHED);
+        var course = courses.findById(created.id()).orElseThrow();
+        ReadyCourseFixture.populate(em, course);
+        course.setStatus(CourseStatus.PUBLISHED);
+        course.setReviewedBy(users.findByEmailIgnoreCase("manager@onlinelearning.local").orElseThrow());
+        em.flush();
         mvc.perform(put("/api/v1/expert/courses/" + created.id()).with(user(OWNER).roles("EXPERT"))
-            .contentType("application/json").content("{\"title\":\"Published updated\",\"description\":\"Updated description\",\"category\":\"Java\",\"price\":450000}"))
-            .andExpect(status().isOk()).andExpect(jsonPath("status").value("PUBLISHED"))
-            .andExpect(jsonPath("editable").value(true)).andExpect(jsonPath("deletable").value(false));
+            .contentType("application/json").content("{\"title\":\"Published updated\",\"description\":\"Updated description\",\"category\":\"Java\",\"price\":450000,\"thumbnailMediaId\":" + course.getThumbnail().getId() + "}"))
+            .andExpect(status().isOk()).andExpect(jsonPath("status").value("DRAFT"))
+            .andExpect(jsonPath("editable").value(true));
+        assertNull(course.getReviewedBy());
+        mvc.perform(get("/api/v1/public/courses/" + created.id())).andExpect(status().isNotFound());
+        assertThrows(ApiException.class, () -> workflow.approve(created.id(), "manager@onlinelearning.local"));
+        workflow.submit(created.id(), OWNER);
+        assertEquals(CourseStatus.PENDING_REVIEW, course.getStatus());
+        assertEquals(409, assertThrows(ApiException.class, () -> expert.update(created.id(), OWNER, input("Locked"))).status().value());
+        mvc.perform(get("/api/v1/public/courses/" + created.id())).andExpect(status().isNotFound());
+        workflow.approve(created.id(), "manager@onlinelearning.local");
         mvc.perform(get("/api/v1/public/courses/" + created.id())).andExpect(status().isOk())
-            .andExpect(jsonPath("title").value("Published updated")).andExpect(jsonPath("price").isEmpty())
-            .andExpect(jsonPath("packages").isEmpty()); // Legacy price is not a purchasable package.
+            .andExpect(jsonPath("title").value("Published updated"));
         mvc.perform(delete("/api/v1/expert/courses/" + created.id()).with(user(OWNER).roles("EXPERT")))
             .andExpect(status().isConflict());
         assertEquals(403, assertThrows(ApiException.class, () -> expert.update(created.id(), "student@onlinelearning.local", input("Attack"))).status().value());
     }
+
+    @Test void publishedPackageChangesAlsoRequireApprovalAndPendingPackagesAreLocked() {
+        var created=expert.create(OWNER,input("Published packages"));
+        var course=courses.findById(created.id()).orElseThrow();
+        ReadyCourseFixture.populate(em,course);
+        course.setStatus(CourseStatus.PUBLISHED);
+        course.setReviewedBy(users.findByEmailIgnoreCase("manager@onlinelearning.local").orElseThrow());
+        var request=new com.onlinelearning.dto.course.CoursePackagesRequest(
+            java.util.Arrays.stream(PackageDuration.values()).map(duration ->
+                new com.onlinelearning.dto.course.CoursePackagesRequest.PackageInput(
+                    duration,new BigDecimal("200000"),BigDecimal.ZERO,true)).toList());
+        packageService.update(created.id(),OWNER,request);
+        assertEquals(CourseStatus.DRAFT,course.getStatus());
+        assertNull(course.getReviewedBy());
+        workflow.submit(created.id(),OWNER);
+        assertEquals(409,assertThrows(ApiException.class,()->packageService.update(created.id(),OWNER,request)).status().value());
+        workflow.approve(created.id(),"manager@onlinelearning.local");
+        assertEquals(CourseStatus.PUBLISHED,course.getStatus());
+    }
+
     @Test void archivedAndPendingCoursesStillCannotBeEdited() {
         var created = expert.create(OWNER, input("Locked"));
         for (CourseStatus state : new CourseStatus[]{CourseStatus.ARCHIVED, CourseStatus.PENDING_REVIEW, CourseStatus.APPROVED}) {

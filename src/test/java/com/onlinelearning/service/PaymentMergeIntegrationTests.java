@@ -77,8 +77,6 @@ class PaymentMergeIntegrationTests {
     }
     @Test void confirmedSnapshotActivatesOnceAndAppearsInStudentCoursesAndManagerTransactions() throws Exception {
         var qr=payments.initiate(STUDENT,registrationId);
-        packages.update(courseId,EXPERT,new CoursePackagesRequest(Arrays.stream(PackageDuration.values()).map(d->
-            new CoursePackagesRequest.PackageInput(d,new BigDecimal("200000"),BigDecimal.ZERO,true)).toList()));
         confirm(qr,1001);
         var r=rows.findById(registrationId).orElseThrow();assertEquals(RegistrationStatus.ACTIVE,r.getStatus());
         assertEquals(0,new BigDecimal("90000").compareTo(r.getAmount()));assertNotNull(r.getValidFrom());
@@ -91,6 +89,10 @@ class PaymentMergeIntegrationTests {
             .andExpect(status().isOk()).andExpect(jsonPath("content[0].courseId").value(courseId));
         mvc.perform(get("/api/v1/manager/transactions").param("q","Payment merge course").param("status","SUCCEEDED").with(user("manager@onlinelearning.local").roles("MANAGER")))
             .andExpect(status().isOk()).andExpect(jsonPath("totalElements").value(1)).andExpect(jsonPath("items[0].status").value("SUCCEEDED"));
+        packages.update(courseId,EXPERT,new CoursePackagesRequest(Arrays.stream(PackageDuration.values()).map(d->
+            new CoursePackagesRequest.PackageInput(d,new BigDecimal("200000"),BigDecimal.ZERO,true)).toList()));
+        assertEquals(0,new BigDecimal("90000").compareTo(r.getAmount()));
+        assertEquals(PaymentStatus.SUCCEEDED,payments.status(STUDENT,registrationId).status());
     }
     @Test void webhookRequiresItsApiKeyAndRejectsMismatchedAmountAndReceiver() throws Exception {
         var qr=payments.initiate(STUDENT,registrationId);
@@ -133,5 +135,68 @@ class PaymentMergeIntegrationTests {
         mvc.perform(post(WEBHOOK).header("Authorization",KEY).contentType("application/json").content(event(qr,1001,"90000","TESTBANK","out"))).andExpect(status().isOk());
         mvc.perform(post(WEBHOOK).header("Authorization",KEY).contentType("application/json").content(event(qr,1001,"90000","TESTBANK","in").replace("OLST","OLSL"))).andExpect(status().isConflict());
         assertEquals(RegistrationStatus.PENDING_PAYMENT,rows.findById(registrationId).orElseThrow().getStatus());assertNull(rows.findById(registrationId).orElseThrow().getValidFrom());
+    }
+
+    void changeOffers(String price,String discount) {
+        packages.update(courseId,EXPERT,new CoursePackagesRequest(Arrays.stream(PackageDuration.values()).map(d->
+            new CoursePackagesRequest.PackageInput(d,new BigDecimal(price),new BigDecimal(discount),true)).toList()));
+    }
+    @Test void priceIncreaseInvalidatesOldQrAndNewQrAloneCanActivate() throws Exception {
+        var old=payments.initiate(STUDENT,registrationId);
+        changeOffers("200000","0");
+        var blocked=payments.status(STUDENT,registrationId);
+        assertEquals(0,new BigDecimal("200000").compareTo(blocked.amount()));assertFalse(blocked.payable());assertNull(blocked.qrUrl());
+        assertNotNull(blocked.notice());assertEquals("SEPAY_REPLACED",transactions.findAll().getFirst().getType());
+        courses.findById(courseId).orElseThrow().setStatus(CourseStatus.PUBLISHED);
+        var fresh=payments.initiate(STUDENT,registrationId);
+        assertNotEquals(old.transferContent(),fresh.transferContent());assertEquals(0,new BigDecimal("200000").compareTo(fresh.amount()));
+        confirm(old,701);
+        assertEquals(RegistrationStatus.PENDING_PAYMENT,rows.findById(registrationId).orElseThrow().getStatus());
+        assertNull(rows.findById(registrationId).orElseThrow().getValidFrom());
+        mvc.perform(post(WEBHOOK).header("Authorization",KEY).contentType("application/json")
+            .content(event(fresh,702,"200000","TESTBANK","in"))).andExpect(status().isOk());
+        assertEquals(RegistrationStatus.ACTIVE,rows.findById(registrationId).orElseThrow().getStatus());
+        assertEquals(2,transactions.findAll().size());
+        assertEquals("SEPAY_REPLACED",transactions.findAll().getFirst().getType());
+    }
+    @Test void discountAndPriceDecreaseRefreshCheckoutTotalsWithoutReusingQr() {
+        var old=payments.initiate(STUDENT,registrationId);
+        changeOffers("60000","50");courses.findById(courseId).orElseThrow().setStatus(CourseStatus.PUBLISHED);
+        var latest=payments.status(STUDENT,registrationId);
+        assertEquals(0,new BigDecimal("30000").compareTo(latest.amount()));assertEquals(0,new BigDecimal("60000").compareTo(latest.originalPrice()));
+        assertEquals(0,new BigDecimal("30000").compareTo(latest.discountAmount()));assertTrue(latest.payable());assertNull(latest.qrUrl());
+        assertNotNull(latest.notice());
+        var fresh=payments.initiate(STUDENT,registrationId);assertNotEquals(old.transferContent(),fresh.transferContent());
+        assertTrue(fresh.qrUrl().contains("amount=30000"));
+    }
+    @Test void changingPriceBackToTheOriginalDoesNotRevalidateTheOldQr() throws Exception {
+        var old=payments.initiate(STUDENT,registrationId);
+        changeOffers("200000","0");changeOffers("100000","10");
+        courses.findById(courseId).orElseThrow().setStatus(CourseStatus.PUBLISHED);
+        confirm(old,703);
+        assertEquals(RegistrationStatus.PENDING_PAYMENT,rows.findById(registrationId).orElseThrow().getStatus());
+        assertNotEquals(old.transferContent(),payments.initiate(STUDENT,registrationId).transferContent());
+    }
+    @Test void expiryCannotBeResetByChangingThePrice() {
+        payments.initiate(STUDENT,registrationId);
+        transactions.findAll().getFirst().setCreatedAt(Instant.now().minusSeconds(301));em.flush();
+        changeOffers("200000","0");
+        var result=payments.status(STUDENT,registrationId);
+        assertEquals(PaymentStatus.CANCELLED,result.status());assertTrue(result.expired());assertNull(result.qrUrl());
+        assertEquals(RegistrationStatus.CANCELLED,rows.findById(registrationId).orElseThrow().getStatus());
+    }
+    @Test void pendingRegistrationWithoutQrGetsNewPriceWithoutCreatingFinancialRows() {
+        changeOffers("200000","0");
+        var result=payments.status(STUDENT,registrationId);
+        assertEquals(0,new BigDecimal("200000").compareTo(result.amount()));assertNull(result.qrUrl());assertFalse(result.payable());
+        assertTrue(paymentRows.findAll().isEmpty());assertTrue(transactions.findAll().isEmpty());
+    }
+    @Test void statusAndWebhookCatchPriceChangesEvenBeforeTheNextPoll() throws Exception {
+        var old=payments.initiate(STUDENT,registrationId);
+        rows.findById(registrationId).orElseThrow().getCoursePackage().setPrice(new BigDecimal("200000"));em.flush();
+        confirm(old,704);
+        var result=payments.status(STUDENT,registrationId);
+        assertEquals(0,new BigDecimal("180000").compareTo(result.amount()));assertNull(result.qrUrl());
+        assertEquals(RegistrationStatus.PENDING_PAYMENT,rows.findById(registrationId).orElseThrow().getStatus());
     }
 }

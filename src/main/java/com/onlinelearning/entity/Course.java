@@ -9,4 +9,18 @@ public class Course extends BaseEntity { @ManyToOne private MediaAsset thumbnail
     @org.hibernate.annotations.UpdateTimestamp
     @Column(name="updated_at", nullable=false)
     private java.time.Instant updatedAt;
+
+    public record ReviewField(String label, String type, String value) {}
+
+    @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+    @Column(name="review_baseline", columnDefinition="json")
+    private Map<String, ReviewField> reviewBaseline;
+
+    public void requireReviewAfterEdit() {
+        if (status == CourseStatus.PUBLISHED) {
+            status = CourseStatus.DRAFT;
+            reviewedBy = null;
+            rejectionReason = null;
+        }
+    }
 }

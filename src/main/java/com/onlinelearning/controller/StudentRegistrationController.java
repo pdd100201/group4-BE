@@ -25,5 +25,8 @@ public class StudentRegistrationController {
         @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="20") int size) {
         return StudentRegistrationPage.from(registrations.list(actor.getName(),new StudentRegistrationFilter(q,status,packageDuration,minAmount,maxAmount),page,size));
     }
+    @PostMapping("/{id}/cancel") public StudentRegistrationResponse cancel(Authentication actor,@PathVariable Long id) {
+        return registrations.cancel(actor.getName(),id);
+    }
     @GetMapping("/{id}") public StudentRegistrationResponse get(Authentication actor,@PathVariable Long id) { return registrations.get(actor.getName(),id); }
 }

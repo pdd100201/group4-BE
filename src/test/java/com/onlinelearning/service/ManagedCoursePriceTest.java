@@ -24,7 +24,7 @@ class ManagedCoursePriceTest {
         when(users.findByEmailIgnoreCase("expert@test.local")).thenReturn(Optional.of(expert));
         when(courses.findAll(any(Specification.class), any(Pageable.class))).thenReturn(new PageImpl<>(List.of(course)));
         when(packages.findByCourseIdInAndActiveTrue(List.of(1L))).thenReturn(List.of(pack));
-        var expertService = new ExpertCourseService(courses, users, mock(AuditLogRepository.class), mock(EntityManager.class), mock(MediaService.class), packages);
+        var expertService = new ExpertCourseService(courses, users, mock(AuditLogRepository.class), mock(EntityManager.class), mock(MediaService.class), packages, mock(CourseReviewChangesService.class));
         var expertResult = expertService.list("expert@test.local", "", "", null, 0, 10).getContent().getFirst();
         assertEquals(new BigDecimal("150000"), expertResult.displayPrice());
         assertEquals(new BigDecimal("999"), expertResult.price(), "Editing must retain the legacy field without overwriting package configuration");

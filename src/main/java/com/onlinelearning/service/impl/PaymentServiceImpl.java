@@ -36,13 +36,14 @@ public class PaymentServiceImpl implements PaymentService {
     private final SepayConfig config;
     private final ObjectMapper json;
     private final EntityManager em;
+    private final com.onlinelearning.service.PendingPaymentPricingService pendingPricing;
 
     // Receiver snapshots keep a pending QR stable across configuration changes.
     public record Receiver(String bank, String account, String qrAccount, String holder, String prefix, boolean test) {}
 
     public PaymentResponse initiate(String email, Long id) {
         var initial = owned(student(email), id);
-        courses.findForUpdate(initial.getCourse().getId()).orElseThrow();
+        var lockedCourse=courses.findForUpdate(initial.getCourse().getId()).orElseThrow(); em.refresh(lockedCourse);
         var r = registrations.findForUpdate(id).orElseThrow(); em.refresh(r);
         if (r.getStatus() != RegistrationStatus.PENDING_PAYMENT || r.getCourse().getStatus() != CourseStatus.PUBLISHED)
             throw error(HttpStatus.CONFLICT, "Dang ky khong con du dieu kien thanh toan.");
@@ -52,6 +53,7 @@ public class PaymentServiceImpl implements PaymentService {
             return payments.saveAndFlush(p);
         });
         retireExpiredUnpaidProvider(payment);
+        pendingPricing.sync(r); validateSnapshot(r);
         // Do not overwrite a retired provider's financial records.
         if (!config.provider().equals(payment.getProvider()) || payment.getAmount().compareTo(r.getAmount()) != 0 || payment.getStatus() != PaymentStatus.PENDING)
             throw error(HttpStatus.CONFLICT, "Dang ky co thanh toan cu hoac khac moi truong. Can xu ly dang ky cu truoc khi tao dang ky moi.");
@@ -69,20 +71,49 @@ public class PaymentServiceImpl implements PaymentService {
 
     public PaymentResponse status(String email, Long id) {
         var initial=owned(student(email),id);
-        courses.findForUpdate(initial.getCourse().getId()).orElseThrow();
+        var lockedCourse=courses.findForUpdate(initial.getCourse().getId()).orElseThrow(); em.refresh(lockedCourse);
         var r=registrations.findForUpdate(id).orElseThrow(); em.refresh(r);
         var p = payments.findByRegistrationId(id).orElse(null);
         if(p!=null) em.refresh(p);
         var tx = p == null ? null : transactions.findFirstByPaymentIdOrderByIdDesc(p.getId()).orElse(null);
         if(tx!=null) em.refresh(tx);
         expireIfNeeded(r,p,tx);
+        pendingPricing.sync(r);
         return response(r, p, tx);
+    }
+
+    public void cancel(String email, Long id) {
+        var initial=owned(student(email),id);
+        // Use the same lock order as payment initiation and bank callbacks.
+        var lockedCourse=courses.findForUpdate(initial.getCourse().getId()).orElseThrow(); em.refresh(lockedCourse);
+        var r=registrations.findForUpdate(id).orElseThrow(); em.refresh(r);
+        if(r.getStatus()==RegistrationStatus.CANCELLED) return;
+        if(r.getStatus()!=RegistrationStatus.PENDING_PAYMENT && r.getStatus()!=RegistrationStatus.ACTIVE)
+            throw error(HttpStatus.CONFLICT,"Chỉ có thể hủy đăng ký đang chờ thanh toán hoặc đang hoạt động.");
+        var p=payments.findByRegistrationId(id).orElse(null);
+        if(p!=null) {
+            em.refresh(p);
+            // Cancelling learning access must preserve settled financial history.
+            if(r.getStatus()==RegistrationStatus.PENDING_PAYMENT && p.getStatus()!=PaymentStatus.PENDING)
+                throw error(HttpStatus.CONFLICT,"Thanh toán đã được xử lý. Vui lòng kiểm tra lại đăng ký.");
+            if(p.getStatus()==PaymentStatus.PENDING) {
+                p.setStatus(PaymentStatus.CANCELLED);
+                for(var tx:transactions.findByPaymentId(p.getId())) {
+                    em.refresh(tx);
+                    if("SEPAY_PENDING".equals(tx.getType())) tx.setType("SEPAY_CANCELLED");
+                    else if("VNPAY_PENDING".equals(tx.getType())) tx.setType("VNPAY_CANCELLED");
+                }
+            }
+        }
+        r.setStatus(RegistrationStatus.CANCELLED);
+        registrations.flush();
+        notificationEvents.registrationCancelled(r);
     }
 
     public void expire(Long id) {
         var initial=registrations.findById(id).orElse(null);
         if(initial==null) return;
-        courses.findForUpdate(initial.getCourse().getId()).orElseThrow();
+        var lockedCourse=courses.findForUpdate(initial.getCourse().getId()).orElseThrow(); em.refresh(lockedCourse);
         var r=registrations.findForUpdate(id).orElseThrow(); em.refresh(r);
         var p=payments.findByRegistrationId(id).orElse(null);
         if(p==null) return;
@@ -115,20 +146,29 @@ public class PaymentServiceImpl implements PaymentService {
         if (("T".equals(match.group(1))) != config.testMode()) throw error(HttpStatus.CONFLICT, "Sai moi truong SePay.");
         Long transactionId = Long.parseLong(match.group(2));
         var found = transactions.findById(transactionId);
-        if (found.isEmpty() || !Set.of("SEPAY_PENDING","SEPAY_EXPIRED").contains(found.get().getType())) return;
+        if (found.isEmpty() || !Set.of("SEPAY_PENDING","SEPAY_EXPIRED","SEPAY_REPLACED","SEPAY_CANCELLED").contains(found.get().getType())) return;
         var initial = found.get(); var initialPayment = initial.getPayment();
-        courses.findForUpdate(initialPayment.getRegistration().getCourse().getId()).orElseThrow();
+        var lockedCourse=courses.findForUpdate(initialPayment.getRegistration().getCourse().getId()).orElseThrow(); em.refresh(lockedCourse);
         var r = registrations.findForUpdate(initialPayment.getRegistration().getId()).orElseThrow();
         var p = payments.findByRegistrationId(r.getId()).orElseThrow(); var tx = transactions.findById(transactionId).orElseThrow();
         em.refresh(r); em.refresh(p); em.refresh(tx);
         if (payments.findByProviderReference(reference).isPresent()) return;
+        pendingPricing.sync(r);
         if (!config.provider().equals(p.getProvider())) throw error(HttpStatus.CONFLICT, "Giao dich khong thuoc SePay dang cau hinh.");
-        if (p.getStatus() == PaymentStatus.SUCCEEDED) return;
-        if (!Set.of("SEPAY_PENDING","SEPAY_EXPIRED").contains(tx.getType())) return;
+        if (p.getStatus() == PaymentStatus.SUCCEEDED && !"SEPAY_REPLACED".equals(tx.getType())) return;
+        if (!Set.of("SEPAY_PENDING","SEPAY_EXPIRED","SEPAY_REPLACED","SEPAY_CANCELLED").contains(tx.getType())) return;
         var receiver = receiver(tx);
         if (receiver.test() != config.testMode() || !receiver.bank().equalsIgnoreCase(event.gateway()) || !receiver.account().equals(event.accountNumber()) ||
                 (!receiver.qrAccount().equals(receiver.account()) && !receiver.qrAccount().equals(event.subAccount())))
             throw error(HttpStatus.BAD_REQUEST, "Giao dich khong dung tai khoan nhan.");
+        if ("SEPAY_CANCELLED".equals(tx.getType())) {
+            notificationEvents.reconciliation(tx.getId(),p.getProvider(),event.id(),r.getCourse().getTitle(),"Tiền về theo QR của đăng ký đã hủy. Cần đối soát; chưa cấp quyền học.",event.transferAmount(),receiver.test());
+            return;
+        }
+        if ("SEPAY_REPLACED".equals(tx.getType())) {
+            notificationEvents.reconciliation(tx.getId(),p.getProvider(),event.id(),r.getCourse().getTitle(),"Tiền chuyển theo QR cũ đã bị thay thế do thay đổi giá hoặc điều kiện thanh toán. Cần đối soát; chưa cấp quyền học từ giao dịch này.",event.transferAmount(),receiver.test());
+            return;
+        }
         if (event.transferAmount().compareTo(tx.getAmount()) != 0 || p.getAmount().compareTo(tx.getAmount()) != 0) {
             notificationEvents.reconciliation(tx.getId(),p.getProvider(),event.id(),r.getCourse().getTitle(),"Số tiền chuyển khoản không khớp đăng ký. Chưa cấp quyền học.",event.transferAmount(),receiver.test());
             throw error(HttpStatus.CONFLICT, "So tien chuyen khoan khong khop. Can doi soat thu cong.");
@@ -176,15 +216,21 @@ public class PaymentServiceImpl implements PaymentService {
         return contentCode;
     }
     private PaymentResponse response(CourseRegistration r, Payment p, Transaction tx) {
-        var state = p == null ? PaymentStatus.PENDING : p.getStatus();
+        var state = p == null ? (r.getStatus()==RegistrationStatus.CANCELLED ? PaymentStatus.CANCELLED : PaymentStatus.PENDING) : p.getStatus();
         Instant deadline=tx!=null && Set.of("SEPAY_PENDING","SEPAY_EXPIRED").contains(tx.getType())?expiresAt(tx):null;
         boolean expired=tx!=null && "SEPAY_EXPIRED".equals(tx.getType());
-        if (tx == null || state != PaymentStatus.PENDING || !"SEPAY_PENDING".equals(tx.getType())) return new PaymentResponse(r.getId(), state, gateway.configured(), config.testMode(), null, null, null, null, null, r.getAmount(),deadline,Instant.now(),expired);
+        boolean payable=r.getStatus()==RegistrationStatus.PENDING_PAYMENT&&state==PaymentStatus.PENDING&&pendingPricing.payable(r);
+        String notice=null;
+        if(r.getStatus()==RegistrationStatus.PENDING_PAYMENT&&state==PaymentStatus.PENDING) {
+            if(!payable) notice=r.getCourse().getStatus()!=CourseStatus.PUBLISHED?"Khóa học đang được cập nhật hoặc xét duyệt. Thanh toán tạm dừng; không sử dụng mã QR cũ.":"Gói học hiện không còn mở thanh toán. Vui lòng chọn gói học khác.";
+            else if(tx!=null&&"SEPAY_REPLACED".equals(tx.getType())) notice="Giá hoặc điều kiện thanh toán đã thay đổi. QR cũ không còn hiệu lực; hãy kiểm tra giá hiện tại và tạo mã QR mới.";
+        }
+        if (!payable || tx == null || state != PaymentStatus.PENDING || !"SEPAY_PENDING".equals(tx.getType())) return new PaymentResponse(r.getId(), state, gateway.configured(), config.testMode(), null, null, null, null, null, r.getAmount(),deadline,Instant.now(),expired,r.getPriceSnapshot(),r.getDiscountSnapshot(),payable,notice);
         var receiver = receiver(tx);
         String code = "OLS" + (receiver.test() ? "T" : "L") + tx.getId();
         String description = (receiver.prefix().isBlank() ? "" : receiver.prefix() + " ") + code;
         return new PaymentResponse(r.getId(), state, gateway.configured(), receiver.test(), gateway.qrUrl(receiver.bank(), receiver.qrAccount(), tx.getAmount(), description),
-                receiver.bank(), receiver.qrAccount(), receiver.holder(), description, tx.getAmount(),deadline,Instant.now(),false);
+                receiver.bank(), receiver.qrAccount(), receiver.holder(), description, tx.getAmount(),deadline,Instant.now(),false,r.getPriceSnapshot(),r.getDiscountSnapshot(),payable,notice);
     }
     private void retireExpiredUnpaidProvider(Payment payment) {
         if (!"VNPAY".equals(payment.getProvider()) || payment.getStatus() != PaymentStatus.PENDING || payment.getProviderReference() != null) return;

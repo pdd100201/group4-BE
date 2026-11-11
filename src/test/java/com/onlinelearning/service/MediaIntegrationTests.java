@@ -75,14 +75,14 @@ class MediaIntegrationTests {
         assertNotNull(media.playback(video.id(), OWNER));
         assertNotNull(media.playback(video.id(), "manager@onlinelearning.local"));
     }
-    @Test void publishedThumbnailCanChangeWithoutOpeningLessonVideoUploads() {
+    @Test void publishedThumbnailChangesReturnTheCourseToDraftForReview() {
         mock(false); Long id = course();
         courseRepository.findById(id).orElseThrow().setStatus(CourseStatus.PUBLISHED);
         var uploaded = media.upload(OWNER, image(), "COURSE_IMAGE", id);
-        var updated = courses.update(id, OWNER, new CourseRequest("Published", "Description", "Java", BigDecimal.ZERO, uploaded.id()));
-        assertEquals(CourseStatus.PUBLISHED, updated.status());
-        assertEquals(uploaded.url(), updated.thumbnailUrl());
         assertEquals(409, assertThrows(ApiException.class, () -> media.upload(OWNER, video(), "LESSON_VIDEO", id)).status().value());
+        var updated = courses.update(id, OWNER, new CourseRequest("Published", "Description", "Java", BigDecimal.ZERO, uploaded.id()));
+        assertEquals(CourseStatus.DRAFT, updated.status());
+        assertEquals(uploaded.url(), updated.thumbnailUrl());
         assertEquals(403, assertThrows(ApiException.class, () -> media.upload("manager@onlinelearning.local", image(), "COURSE_IMAGE", id)).status().value());
     }
     @Test void wrongOwnerWrongPurposeAndLockedCourseCannotUploadOrBind() {

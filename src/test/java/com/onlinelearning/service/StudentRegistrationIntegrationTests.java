@@ -57,11 +57,14 @@ class StudentRegistrationIntegrationTests {
         mvc.perform(get("/api/v1/student/registrations/"+r.id()).with(user(STUDENT).roles("STUDENT")))
             .andExpect(status().isOk()).andExpect(jsonPath("amount").value(90001)).andExpect(jsonPath("currency").value("VND"));
     }
-    @Test void repeatedSubmitReopensSamePendingDespiteNewPackagePrices() {
+    @Test void repeatedSubmitReusesPendingAtNewPriceAfterTheCourseIsRepublished() {
         var first=registrations.register(STUDENT,request(offers.get(0).id()));
         packages.update(id,EXPERT,prices("200000","20",true));
+        assertEquals(CourseStatus.DRAFT,courses.findById(id).orElseThrow().getStatus());
+        assertThrows(ApiException.class,()->registrations.register(STUDENT,request(offers.get(1).id())));
+        courses.findById(id).orElseThrow().setStatus(CourseStatus.PUBLISHED);
         var again=registrations.register(STUDENT,request(offers.get(1).id()));
-        assertEquals(first.id(),again.id());assertTrue(again.reused());assertEquals(first.packageId(),again.packageId());assertEquals(0,first.amount().compareTo(again.amount()));
+        assertEquals(first.id(),again.id());assertTrue(again.reused());assertEquals(first.packageId(),again.packageId());assertEquals(0,new BigDecimal("160000").compareTo(again.amount()));
         assertEquals(1,repository.findAll((root,q,cb)->cb.equal(root.get("course").get("id"),id)).size());
     }
     @Test void activeMonthlyAndLifetimeAccessBlockRegistrationButExpiredAllowsNew() {
@@ -106,7 +109,11 @@ class StudentRegistrationIntegrationTests {
         assertEquals(3,catalog.getPublished(id).packages().size());
         registrations.register(STUDENT,request(offers.get(0).id()));
         assertThrows(ApiException.class,()->moderation.delete(id,"manager@onlinelearning.local","Violation"));
-        packages.update(id,EXPERT,prices("200000","0",false));assertTrue(catalog.getPublished(id).packages().isEmpty());assertNull(catalog.getPublished(id).price());
+        packages.update(id,EXPERT,prices("200000","0",false));
+        assertEquals(CourseStatus.DRAFT,courses.findById(id).orElseThrow().getStatus());
+        assertThrows(ApiException.class,()->catalog.getPublished(id));
+        courses.findById(id).orElseThrow().setStatus(CourseStatus.PUBLISHED);
+        assertTrue(catalog.getPublished(id).packages().isEmpty());assertNull(catalog.getPublished(id).price());
     }
     @Test void courseWithoutRegistrationsDeletesItsPackages() {
         moderation.delete(id,"manager@onlinelearning.local","Delete fixture");assertFalse(courses.existsById(id));assertTrue(packageRepository.findByCourseIdOrderByIdAsc(id).isEmpty());

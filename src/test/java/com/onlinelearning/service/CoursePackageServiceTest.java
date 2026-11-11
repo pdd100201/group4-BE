@@ -34,7 +34,7 @@ class CoursePackageServiceTest {
     @BeforeAll static void openValidator() { factory = Validation.buildDefaultValidatorFactory(); }
     @AfterAll static void closeValidator() { factory.close(); }
     @BeforeEach void setup() {
-        service = new CoursePackageServiceImpl(courses, packages, users, logs, factory.getValidator());
+        service = new CoursePackageServiceImpl(courses, packages, users, logs, factory.getValidator(), mock(com.onlinelearning.service.CourseReviewChangesService.class), mock(com.onlinelearning.service.PendingPaymentPricingService.class));
         owner = new User(); owner.setId(2L); owner.setEmail("expert@example.com"); owner.setEnabled(true);
         Role role = new Role(); role.setCode("EXPERT"); owner.getRoles().add(role);
         course = new Course(); course.setId(1L); course.setExpert(owner);

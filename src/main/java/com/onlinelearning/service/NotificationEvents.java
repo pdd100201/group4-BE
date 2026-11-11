@@ -21,6 +21,12 @@ public class NotificationEvents {
   send(r.getCourse().getExpert(),"expert:"+key,"STUDENT_REGISTERED","COURSE","Có học viên đăng ký khóa học",
    r.getStudent().getFullName()+" đã đăng ký "+course+". Trạng thái: chờ thanh toán.","/expert/courses/"+r.getCourse().getId());
  }
+ public void registrationCancelled(CourseRegistration r){
+  send(r.getStudent(),"cancelled:registration:"+r.getId(),"REGISTRATION_CANCELLED","COURSE","Đã hủy đăng ký",
+   "Bạn đã hủy đăng ký "+r.getCourse().getTitle()+(r.getValidFrom()!=null?". Quyền học của đăng ký này đã dừng.":". Không chuyển tiền theo mã QR của đăng ký này."),"/student/registrations/"+r.getId());
+  if(r.getValidFrom()!=null) send(r.getCourse().getExpert(),"expert-cancelled:registration:"+r.getId(),"STUDENT_CANCELLED","COURSE","Học viên đã hủy đăng ký",
+   r.getStudent().getFullName()+" đã hủy đăng ký "+r.getCourse().getTitle()+".","/expert/students/"+r.getCourse().getId());
+ }
  public void paymentSucceeded(CourseRegistration r,Payment payment,Transaction tx){
   String course=r.getCourse().getTitle(), key="paid:"+payment.getId();
   boolean test="SEPAY_TEST".equals(payment.getProvider());

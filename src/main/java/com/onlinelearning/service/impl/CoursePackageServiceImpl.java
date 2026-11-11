@@ -20,6 +20,8 @@ public class CoursePackageServiceImpl implements CoursePackageService {
     private final UserRepository users;
     private final AuditLogRepository logs;
     private final Validator validator;
+    private final com.onlinelearning.service.CourseReviewChangesService reviewChanges;
+    private final com.onlinelearning.service.PendingPaymentPricingService pendingPricing;
 
     @Transactional(readOnly=true)
     public List<CoursePackageResponse> get(Long id, String email) {
@@ -34,6 +36,7 @@ public class CoursePackageServiceImpl implements CoursePackageService {
         if (request == null || !validator.validate(request).isEmpty())
             throw new ApiException(HttpStatus.BAD_REQUEST,"Nhập đủ ba gói, giá VNĐ nguyên không âm và giảm giá từ 0 đến 100%.");
         Set<PackageDuration> seen = EnumSet.noneOf(PackageDuration.class);
+        reviewChanges.capturePublished(course);
         Map<PackageDuration,CoursePackage> existing = new EnumMap<>(PackageDuration.class);
         packages.findByCourseIdOrderByIdAsc(id).forEach(p -> existing.put(p.getDuration(),p));
         for (var input: request.packages()) {
@@ -42,9 +45,11 @@ public class CoursePackageServiceImpl implements CoursePackageService {
             p.setCourse(course); p.setDuration(input.duration()); p.setPrice(input.price());
             p.setDiscountPercent(input.discountPercent()); p.setActive(input.active()); packages.save(p);
         }
+        course.requireReviewAfterEdit();
         AuditLog log=new AuditLog();log.setActor(course.getExpert());log.setAction("COURSE_PACKAGES_UPDATED");
         log.setTargetType("COURSE");log.setTargetId(id.toString());log.setOccurredAt(Instant.now());logs.save(log);
         packages.flush();
+        pendingPricing.syncCourse(id);
         return packages.findByCourseIdOrderByIdAsc(id).stream().map(CoursePackageResponse::from).toList();
     }
 
