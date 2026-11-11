@@ -1,0 +1,8 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration name="OnlineLearningApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot">
+    <module name="online-learning" />
+    <option name="SPRING_BOOT_MAIN_CLASS" value="com.onlinelearning.OnlineLearningApplication" />
+    <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$" />
+    <method v="2"><option name="Make" enabled="true" /></method>
+  </configuration>
+</component>
