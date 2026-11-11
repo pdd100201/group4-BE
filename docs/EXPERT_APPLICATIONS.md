@@ -1,36 +1,9 @@
-# Expert applications
+# Cấp quyền Expert
 
-Students register from **Hồ sơ cá nhân → Đăng ký trở thành giảng viên**.
-They provide specialty, years of experience, work history and teaching introduction.
-A HTTPS portfolio link and up to 3 PDF/JPG/PNG/WebP documents (5 MB each) are optional.
-Evidence is stored privately in the database and downloaded through an authenticated
-endpoint available only to the applicant and Admin.
+Luồng học viên gửi hồ sơ xin trở thành Expert và admin xét duyệt hồ sơ đã được bỏ. Backend không còn ánh xạ bảng `expert_applications` hoặc loại tài liệu `EXPERT_DOCUMENT`; frontend không còn form, API client và màn xét duyệt tương ứng.
 
-Only one pending submission is allowed per applicant. Submissions are immutable.
-After rejection, the applicant can submit a new application; the old record remains
-available to Admin. Attachments must be selected again for a new submission.
+Admin tiếp tục tạo tài khoản hoặc cấp quyền Expert trong Quản lý tài khoản. Quyền của tài khoản hiện có vẫn nằm trong `users`, `roles`, `user_roles`; không bị xóa khi bỏ chức năng hồ sơ. Khóa học hiện có vẫn giữ nguyên.
 
-Admin uses **Duyệt giảng viên** to search/filter applications, review details and
-download evidence, then approve or reject. Rejection requires a reason. Decisions
-are final for that application and concurrent reviews are serialized. Approval adds
-EXPERT while retaining STUDENT and existing enrollments. Admin account management
-also keeps STUDENT when assigning EXPERT. New decisions create in-app notifications
-and audit records in the same transaction.
+DB hiện tại đã được người dùng xử lý trước khi cập nhật code: chỉ xóa bảng `expert_applications` khi trống và bỏ khóa ngoại tương ứng từ `stored_assets`. Bảng `stored_assets` vẫn giữ ảnh và tệp chat. Các cột cũ `application_id`, `size_bytes`, `content` có thể còn trong DB nhưng không còn được code sử dụng; không cần xóa thêm để chạy backend.
 
-The frontend refreshes the pending status every 15 seconds. Account roles are
-refreshed from `/profile` on focus and every minute while visible; approval on the
-profile page refreshes them immediately. JWT authorization already reads current
-database roles. Expert and Student navigation remain available for dual-role users.
-
-Before running the updated backend on MySQL, back up the configured database and
-apply `database/migrations/V023__expert_applications.sql`. It creates two new tables
-without modifying existing accounts, applications or financial records.
-
-API:
-
-- `GET /api/v1/expert-applications/mine`: latest own submission, or 204 if none.
-- `POST /api/v1/expert-applications`: multipart `details` JSON + optional `files`.
-- `GET /api/v1/admin/expert-applications?status=PENDING&search=&page=0`: Admin queue.
-- `GET /api/v1/admin/expert-applications/{id}`: Admin details and document metadata.
-- `PUT /api/v1/admin/expert-applications/{id}/review`: `{ "approve": true, "reason": "..." }`.
-- `GET /api/v1/expert-applications/documents/{id}`: authorized private download.
+Máy thành viên dùng schema cũ cần thực hiện cùng thay đổi DB sau khi dừng backend. Không chạy lại migration tạo chức năng hồ sơ expert. Biên dịch sạch backend để loại các `.class` cũ trước khi khởi động lại.

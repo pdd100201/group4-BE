@@ -42,7 +42,6 @@ public class CourseModerationService {
             "select count(r) from CourseRegistration r where r.course.id=:id",
             "select count(p) from CertificatePolicy p where p.course.id=:id",
             "select count(c) from CourseCertificate c where c.course.id=:id",
-            "select count(a) from CourseAnnouncement a where a.course.id=:id",
             "select count(d) from LessonDiscussion d where d.lesson.course.id=:id",
             "select count(a) from QuizAttempt a where a.quiz.course.id=:id",
             "select count(p) from StudentLessonProgress p where p.lesson.course.id=:id",
