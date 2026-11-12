@@ -10,14 +10,14 @@ public record CommentResponse(Long id, Long postId, String postTitle, String aut
     }
     public static CommentResponse from(PostComment c, User viewer, long likeCount, boolean liked,long replyCount) {
         boolean available = c.getStatus() == CommentStatus.VISIBLE && c.getPost().isPublished() && !c.getPost().isDeleted();
-        boolean owner = viewer != null && viewer.isEnabled() && !viewer.isBlocked()
-            && viewer.getId().equals(c.getAuthor().getId()) && viewer.getRoles().stream().anyMatch(r -> "STUDENT".equals(r.getCode()));
+        boolean participant = viewer != null && viewer.isEnabled() && !viewer.isBlocked()
+            && viewer.getRoles().stream().anyMatch(r -> java.util.Set.of("STUDENT","EXPERT","MANAGER","ADMIN").contains(r.getCode()));
+        boolean owner = participant && viewer.getId().equals(c.getAuthor().getId());
         boolean moderator = viewer != null && viewer.isEnabled() && !viewer.isBlocked()
             && viewer.getRoles().stream().anyMatch(r -> "MANAGER".equals(r.getCode()) || "ADMIN".equals(r.getCode()));
         return new CommentResponse(c.getId(), c.getPost().getId(), c.getPost().getTitle(), c.getAuthor().getFullName(),
             c.getAuthor().getAvatarUrl(), c.getContent(), c.getStatus(), c.getCreatedAt(), c.getUpdatedAt(),
             available && owner, c.getStatus() != CommentStatus.DELETED && (moderator || available && owner),likeCount,liked,
-            available && viewer!=null && viewer.isEnabled() && !viewer.isBlocked()
-            && viewer.getRoles().stream().anyMatch(r -> java.util.Set.of("STUDENT","EXPERT","MANAGER","ADMIN").contains(r.getCode())),c.getParentId(),replyCount);
+            available && participant,c.getParentId(),replyCount);
     }
 }

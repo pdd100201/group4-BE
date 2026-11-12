@@ -20,7 +20,7 @@ public class ManagerPostService {
     private final BlogActorService actors;
 
     public BlogPage<ManagedPostResponse> list(String email, int page, int size) {
-        actors.require(email, "MANAGER");
+        actors.require(email, "MANAGER", "ADMIN");
         if (page < 0 || size < 1 || size > 100) throw new ApiException(HttpStatus.BAD_REQUEST, "Phân trang không hợp lệ.");
         return BlogPage.from(posts.findAll((root, query, cb) -> {
             if (query != null && query.getResultType() != Long.class) root.fetch("author");
@@ -28,30 +28,30 @@ public class ManagerPostService {
         }, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "updatedAt", "id"))).map(ManagedPostResponse::from));
     }
     public ManagedPostResponse detail(Long id, String email) {
-        actors.require(email, "MANAGER");
+        actors.require(email, "MANAGER", "ADMIN");
         Post post = posts.findById(id).filter(p -> !p.isDeleted()).orElseThrow(() -> unavailable());
         return ManagedPostResponse.from(post);
     }
     @Transactional public ManagedPostResponse create(String email, PostRequest request) {
-        User actor = actors.require(email, "MANAGER");
+        User actor = actors.require(email, "MANAGER", "ADMIN");
         Post post = new Post(); post.setAuthor(actor); apply(post, request, actor);
         posts.saveAndFlush(post); record(actor, post, "CREATE_POST");
         return ManagedPostResponse.from(post);
     }
     @Transactional public ManagedPostResponse update(Long id, String email, PostRequest request) {
-        User actor = actors.require(email, "MANAGER");
+        User actor = actors.require(email, "MANAGER", "ADMIN");
         Post post = lock(id); apply(post, request, actor); record(actor, post, "UPDATE_POST");
         return ManagedPostResponse.from(post);
     }
     @Transactional public void delete(Long id, String email) {
-        User actor = actors.require(email, "MANAGER");
+        User actor = actors.require(email, "MANAGER", "ADMIN");
         Post post = lock(id);
         // Retain the post, comments, media and audit history; do not cascade physical deletion.
         post.setDeleted(true); post.setPublished(false); post.setUpdatedAt(Instant.now());
         record(actor, post, "DELETE_POST");
     }
     @Transactional public ManagedPostResponse review(Long id, String email, PostReviewRequest.Decision decision) {
-        User actor = actors.require(email, "MANAGER");
+        User actor = actors.require(email, "MANAGER", "ADMIN");
         if (decision == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Quyết định kiểm duyệt không hợp lệ.");
         Post post = lock(id);
         if (post.getStatus() != PostStatus.PENDING_REVIEW)

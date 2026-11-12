@@ -22,7 +22,7 @@ public class StudentLessonService {
     private final QuizRepository quizzes;
     public record LessonItem(Long id,String title,Integer position,boolean completed) {}
     public record LessonContent(Long id,String title,String content,Long videoMediaId) {}
-    public record LessonQuiz(Long id,Long lessonId,String title,Integer durationMinutes,Integer passRate,int questionCount) {}
+    public record LessonQuiz(Long id,Long lessonId,String title,Integer durationMinutes,Integer passRate,int questionCount,boolean passed) {}
     public record LearningCourse(Long courseId,String courseTitle,String expertName,int completedLessons,int progressPercent,
         List<LessonItem> lessons,LessonContent currentLesson,List<LessonQuiz> quizzes) {}
 
@@ -32,12 +32,18 @@ public class StudentLessonService {
         Set<Long> completed=new HashSet<>();progress.findByStudentIdAndLessonCourseId(student.getId(),courseId).stream().filter(StudentLessonProgress::isCompleted).forEach(p->completed.add(p.getLesson().getId()));
         Lesson selected=lessonId==null ? outline.stream().filter(l->!completed.contains(l.getId())).findFirst().orElse(outline.isEmpty()?null:outline.getFirst()) : outline.stream().filter(l->l.getId().equals(lessonId)).findFirst().orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Bài học không tồn tại hoặc đang bị ẩn."));
         int count=(int)outline.stream().filter(l->completed.contains(l.getId())).count();
-        return new LearningCourse(courseId,course.getTitle(),course.getExpert().getFullName(),count,outline.isEmpty()?0:count*100/outline.size(),
+        Set<Long> passed=new HashSet<>(em.createQuery("select distinct a.quiz.id from QuizAttempt a where a.student.id=:student and a.quiz.course.id=:course and a.passed=true and a.submittedAt is not null",Long.class)
+            .setParameter("student",student.getId()).setParameter("course",courseId).getResultList());
+        var courseQuizzes=quizzes.findByCourseIdOrderByIdAsc(courseId).stream().filter(Quiz::isActive)
+            .filter(q->q.getLesson()==null || q.getLesson().isActive())
+            .filter(q->!q.getQuizQuestions().isEmpty()).toList();
+        int passedCount=(int)courseQuizzes.stream().filter(q->passed.contains(q.getId())).count();
+        int total=outline.size()+courseQuizzes.size();
+        int percent=total==0?0:(count+passedCount)*100/total;
+        return new LearningCourse(courseId,course.getTitle(),course.getExpert().getFullName(),count,percent,
             outline.stream().map(l->new LessonItem(l.getId(),l.getTitle(),l.getPosition(),completed.contains(l.getId()))).toList(),
             selected==null?null:new LessonContent(selected.getId(),selected.getTitle(),selected.getContent(),selected.getVideo()==null?null:selected.getVideo().getId()),
-            quizzes.findByCourseIdOrderByIdAsc(courseId).stream().filter(Quiz::isActive)
-                .filter(q->q.getLesson()==null || q.getLesson().isActive())
-                .filter(q->!q.getQuizQuestions().isEmpty()).map(q->new LessonQuiz(q.getId(),q.getLesson()==null?null:q.getLesson().getId(),q.getTitle(),q.getDurationMinutes(),q.getPassRate(),q.getQuizQuestions().size())).toList());
+            courseQuizzes.stream().map(q->new LessonQuiz(q.getId(),q.getLesson()==null?null:q.getLesson().getId(),q.getTitle(),q.getDurationMinutes(),q.getPassRate(),q.getQuizQuestions().size(),passed.contains(q.getId()))).toList());
     }
     @Transactional
     public LearningCourse complete(Long courseId,Long lessonId,String email) {

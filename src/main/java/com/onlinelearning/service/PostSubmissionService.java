@@ -38,10 +38,16 @@ public class PostSubmissionService {
         Post post = new Post(); post.setAuthor(author); post.setTitle(request.title().trim());
         post.setCategory(request.category().trim()); post.setSummary(request.summary().trim());
         post.setContent(request.content().trim()); post.setThumbnailUrl(image.getSecureUrl());
-        post.setPublished(false); post.setStatus(PostStatus.PENDING_REVIEW); post.setUpdatedAt(Instant.now());
+        boolean publishImmediately = author.getRoles().stream()
+            .anyMatch(role -> "ADMIN".equals(role.getCode()) || "MANAGER".equals(role.getCode()));
+        Instant now = Instant.now();
+        post.setPublished(publishImmediately);
+        post.setStatus(publishImmediately ? PostStatus.PUBLISHED : PostStatus.PENDING_REVIEW);
+        post.setPublishedAt(publishImmediately ? now : null);
+        post.setUpdatedAt(now);
         posts.saveAndFlush(post);
         record(author, post);
-        notificationEvents.postSubmitted(post);
+        if (!publishImmediately) notificationEvents.postSubmitted(post);
         return ManagedPostResponse.from(post);
     }
 
@@ -57,6 +63,6 @@ public class PostSubmissionService {
 
     private void record(User actor, Post post) {
         AuditLog entry = new AuditLog(); entry.setActor(actor); entry.setTargetType("POST");
-        entry.setTargetId(post.getId().toString()); entry.setAction("SUBMIT_POST"); entry.setOccurredAt(Instant.now()); audit.save(entry);
+        entry.setTargetId(post.getId().toString()); entry.setAction(post.isPublished() ? "PUBLISH_POST" : "SUBMIT_POST"); entry.setOccurredAt(Instant.now()); audit.save(entry);
     }
 }

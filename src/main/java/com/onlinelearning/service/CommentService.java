@@ -37,7 +37,7 @@ public class CommentService {
             PageRequest.of(page,size,Sort.by(Sort.Direction.ASC,"id"))),viewer(email));
     }
     @Transactional public CommentResponse reply(Long postId,Long parentId,String email,CommentRequest request) {
-        User actor=actors.require(email,"STUDENT");
+        User actor=participant(email);
         Post post=visibleLocked(postId);
         root(postId,parentId);
         var c=new PostComment();c.setPost(post);c.setParentId(parentId);c.setAuthor(actor);c.setContent(content(request));
@@ -72,20 +72,20 @@ public class CommentService {
         return response(c, actor);
     }
     @Transactional public CommentResponse create(Long postId, String email, CommentRequest request) {
-        User student = actors.require(email, "STUDENT");
+        User student = participant(email);
         Post post = visibleLocked(postId);
         PostComment c = new PostComment(); c.setPost(post); c.setAuthor(student); c.setContent(content(request));
         comments.saveAndFlush(c); record(student, c, "CREATE_COMMENT"); return response(c, student);
     }
     @Transactional public CommentResponse update(Long id, String email, CommentRequest request) {
-        User student = actors.require(email, "STUDENT");
+        User student = participant(email);
         PostComment c = locked(id);
         if (!c.getAuthor().getId().equals(student.getId())) throw error(HttpStatus.FORBIDDEN, "Bạn chỉ được sửa bình luận của mình.");
         requireEditable(c); c.setContent(content(request)); c.setUpdatedAt(Instant.now());
         record(student, c, "UPDATE_COMMENT"); return response(c, student);
     }
     @Transactional public void delete(Long id, String email) {
-        User actor = actors.require(email, "STUDENT", "MANAGER", "ADMIN");
+        User actor = participant(email);
         PostComment c = locked(id);
         boolean moderator = actor.getRoles().stream().anyMatch(r -> "MANAGER".equals(r.getCode()) || "ADMIN".equals(r.getCode()));
         if (!moderator) {
@@ -106,7 +106,7 @@ public class CommentService {
     }
     @Transactional(isolation=org.springframework.transaction.annotation.Isolation.READ_COMMITTED)
     public CommentResponse like(Long id,String email,boolean liked) {
-        User actor=actors.require(email,"STUDENT","EXPERT","MANAGER","ADMIN");
+        User actor=participant(email);
         PostComment c=locked(id);
         requireEditable(c);
         var existing=likes.findByCommentIdAndStudentId(id,actor.getId());
@@ -155,6 +155,7 @@ public class CommentService {
         if (r.content() == null || r.content().isBlank() || r.content().trim().length() > 2000) throw error(HttpStatus.BAD_REQUEST, "Bình luận cần có nội dung và tối đa 2000 ký tự.");
         return r.content().trim();
     }
+    private User participant(String email) { return actors.require(email,"STUDENT","EXPERT","MANAGER","ADMIN"); }
     private User viewer(String email) { return email == null ? null : users.findByEmailIgnoreCase(email).orElse(null); }
     private ApiException missing() { return error(HttpStatus.NOT_FOUND, "Bài viết hoặc bình luận không khả dụng."); }
     private ApiException error(HttpStatus status, String message) { return new ApiException(status, message); }

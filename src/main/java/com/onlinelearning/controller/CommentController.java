@@ -21,7 +21,7 @@ public class CommentController {
         @RequestParam(defaultValue="0") int page,@RequestParam(defaultValue="10") int size) {
         return comments.replies(postId,id,actor==null?null:actor.getName(),page,size);
     }
-    @PostMapping("/student/posts/{postId}/comments/{id}/replies") @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping({"/posts/{postId}/comments/{id}/replies", "/student/posts/{postId}/comments/{id}/replies"}) @ResponseStatus(HttpStatus.CREATED)
     public CommentResponse reply(@PathVariable Long postId,@PathVariable Long id,@Valid @RequestBody CommentRequest request,Authentication actor) {
         return comments.reply(postId,id,actor.getName(),request);
     }
@@ -39,11 +39,11 @@ public class CommentController {
     public CommentResponse moderationDetail(@PathVariable Long postId, @PathVariable Long id, Authentication actor) {
         return comments.moderationDetail(postId, id, actor.getName());
     }
-    @PostMapping("/student/posts/{postId}/comments") @ResponseStatus(HttpStatus.CREATED)
+    @PostMapping({"/posts/{postId}/comments", "/student/posts/{postId}/comments"}) @ResponseStatus(HttpStatus.CREATED)
     public CommentResponse create(@PathVariable Long postId, @Valid @RequestBody CommentRequest request, Authentication actor) {
         return comments.create(postId, actor.getName(), request);
     }
-    @PutMapping("/student/comments/{id}")
+    @PutMapping({"/comments/{id}", "/student/comments/{id}"})
     public CommentResponse update(@PathVariable Long id, @Valid @RequestBody CommentRequest request, Authentication actor) {
         return comments.update(id, actor.getName(), request);
     }

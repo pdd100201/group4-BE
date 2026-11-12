@@ -8,7 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-@RestController @RequiredArgsConstructor @RequestMapping("/api/v1/manager/posts")
+@RestController @RequiredArgsConstructor @RequestMapping({"/api/v1/manager/posts", "/api/v1/admin/posts"})
 public class ManagerPostController {
     private final ManagerPostService posts;
     @GetMapping public BlogPage<ManagedPostResponse> list(Authentication actor, @RequestParam(defaultValue="0") int page,
