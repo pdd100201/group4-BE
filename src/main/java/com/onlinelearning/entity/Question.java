@@ -2,7 +2,11 @@ package com.onlinelearning.entity;
 import jakarta.persistence.*; import lombok.*; import java.util.*;
 @Entity @Table(name="questions") @Getter @Setter @NoArgsConstructor
 public class Question extends BaseEntity { @ManyToOne(optional=false) private Course course; @Column(nullable=false,length=4000) private String content; private String type; private String explanation; private boolean active=true; @OneToMany(mappedBy="question",cascade=CascadeType.ALL,orphanRemoval=true) private List<QuestionOption> options=new ArrayList<>();
+    // Legacy column retained for compatibility; lesson_questions owns current assignments.
     @ManyToOne private Lesson lesson;
+    @ManyToMany
+    @JoinTable(name="lesson_questions",joinColumns=@JoinColumn(name="question_id"),inverseJoinColumns=@JoinColumn(name="lesson_id"))
+    private Set<Lesson> lessons=new HashSet<>();
     @Column(name="question_type") private String questionType;
     private String status;
     @ManyToOne private MediaAsset image;

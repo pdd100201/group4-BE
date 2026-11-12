@@ -18,10 +18,11 @@ public class ExpertLessonService {
     private final AuditLogRepository audit;
     private final EntityManager em;
     private final MediaService media;
+    private final CourseContentEditing editing;
     @Transactional(readOnly=true)
     public List<LessonResponse> list(Long courseId, String email) {
         owned(courseId, email, false);
-        return lessons.findByCourseIdOrderByPositionAscIdAsc(courseId).stream().map(LessonResponse::from).toList();
+        return lessons.findByCourseIdOrderByPositionAscIdAsc(courseId).stream().filter(Lesson::isActive).map(LessonResponse::from).toList();
     }
     @Transactional(readOnly=true)
     public LessonResponse get(Long courseId, Long id, String email) {
@@ -39,12 +40,13 @@ public class ExpertLessonService {
     }
     public void delete(Long courseId, Long id, String email) {
         Course c = owned(courseId, email, true); editable(c); Lesson l = lesson(courseId, id);
-        Long quizLinks=em.createQuery("select count(q) from Quiz q where q.lesson.id=:id",Long.class).setParameter("id",id).getSingleResult();
-        Long questionLinks=em.createQuery("select count(q) from Question q where q.lesson.id=:id",Long.class).setParameter("id",id).getSingleResult();
-        if((quizLinks!=null && quizLinks>0)||(questionLinks!=null && questionLinks>0)) throw new ApiException(HttpStatus.CONFLICT,"Bài học đang có quiz hoặc câu hỏi. Hãy chuyển chúng sang bài khác hoặc phạm vi toàn khóa trước khi xóa.");
-        Long retained = em.createQuery("select count(p) from StudentLessonProgress p where p.lesson.id = :id", Long.class).setParameter("id", id).getSingleResult();
-        if (retained > 0) throw new ApiException(HttpStatus.CONFLICT, "Không thể xóa bài học đã có tiến độ học tập của Student.");
-        record(l, "LESSON_DELETED"); lessons.delete(l); lessons.flush();
+        // Clear the obsolete single-lesson reference and only this lesson's current links.
+        for(var question:em.createQuery("select distinct q from Question q left join fetch q.lessons where q.course.id=:id",Question.class).setParameter("id",courseId).getResultList()) {
+            if(question.getLesson()!=null && question.getLesson().getId().equals(l.getId())) question.setLesson(null);
+            question.getLessons().removeIf(item->item.getId().equals(l.getId()));
+        }
+        em.flush();
+        l.setActive(false); l.setPosition(null); record(l, "LESSON_REMOVED"); lessons.flush();
     }
     private Course owned(Long id, String email, boolean lock) {
         Course c = (lock ? courses.findForUpdate(id) : courses.findById(id)).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));
@@ -52,7 +54,7 @@ public class ExpertLessonService {
         return c;
     }
     private void editable(Course c) {
-        if (c.getStatus() != CourseStatus.DRAFT && c.getStatus() != CourseStatus.REJECTED) throw new ApiException(HttpStatus.CONFLICT, "Chỉ được thay đổi bài học khi khóa học là Nháp hoặc Bị từ chối.");
+        editing.begin(c);
     }
     private Lesson lesson(Long courseId, Long id) { return lessons.findByIdAndCourseId(id, courseId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Bài học không thuộc khóa học này hoặc không tồn tại.")); }
     private void position(Long courseId, Integer position, Long id) {

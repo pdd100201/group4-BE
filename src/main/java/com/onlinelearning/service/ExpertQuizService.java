@@ -18,6 +18,7 @@ public class ExpertQuizService {
     private final QuizAttemptRepository attempts;
     private final QuestionRepository questions;
     private final LessonRepository lessons;
+    private final CourseContentEditing editing;
     private final AuditLogRepository audit;
 
     @Transactional(readOnly=true)
@@ -63,7 +64,7 @@ public class ExpertQuizService {
         String pattern = "%" + search.trim().toLowerCase(Locale.ROOT).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
         org.springframework.data.jpa.domain.Specification<Question> spec = (root, query, cb) -> cb.and(
             cb.equal(root.get("course").get("id"), courseId), cb.isTrue(root.get("active")), cb.like(cb.lower(root.get("content")), pattern, '\\'),
-            lessonId==null?cb.conjunction():lessonId==0?cb.isNull(root.get("lesson")):cb.equal(root.get("lesson").get("id"),lessonId));
+            lessonId==null?cb.conjunction():lessonId==0?cb.isEmpty(root.get("lessons")):cb.equal(root.join("lessons").get("id"),lessonId));
         return questions.findAll(spec, org.springframework.data.domain.PageRequest.of(page, size,
             org.springframework.data.domain.Sort.by("id"))).map(q -> new QuestionChoice(q.getId(), q.getContent(), q.getType(), q.isActive()));
     }
@@ -90,7 +91,7 @@ public class ExpertQuizService {
     public QuizResponse create(Long courseId, String email, QuizRequest request) {
         Course c = owned(courseId, email, true);
         editable(c);
-        if (!quizzes.findByCourseIdOrderByIdAsc(courseId).isEmpty())
+        if (quizzes.findByCourseIdOrderByIdAsc(courseId).stream().anyMatch(Quiz::isActive))
             throw new ApiException(HttpStatus.CONFLICT, "Mỗi khóa học chỉ có một quiz. Hãy chỉnh sửa quiz hiện có.");
         if (request.lessonId() != null)
             throw new ApiException(HttpStatus.BAD_REQUEST, "Quiz đánh giá toàn khóa, không gắn riêng bài học.");
@@ -123,8 +124,9 @@ public class ExpertQuizService {
         Course c = owned(courseId, email, true);
         editable(c);
         Quiz q = quiz(courseId, id);
-        if (attempts.existsByQuizId(id))
-            throw new ApiException(HttpStatus.CONFLICT, "Không thể xóa quiz đã có lượt làm bài của học viên.");
+        if (attempts.existsByQuizId(id)) {
+            q.setActive(false); record(q, "QUIZ_RETIRED"); quizzes.flush(); return;
+        }
         record(q, "QUIZ_DELETED");
         clearLinks(id);
         quizzes.delete(q);
@@ -173,8 +175,7 @@ public class ExpertQuizService {
     }
 
     private void editable(Course c) {
-        if (c.getStatus() != CourseStatus.DRAFT && c.getStatus() != CourseStatus.REJECTED)
-            throw new ApiException(HttpStatus.CONFLICT, "Chỉ được thay đổi quiz khi khóa học là Nháp hoặc Bị từ chối.");
+        editing.begin(c);
     }
 
     private Quiz quiz(Long courseId, Long id) {

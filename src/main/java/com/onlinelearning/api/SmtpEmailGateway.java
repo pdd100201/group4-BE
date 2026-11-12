@@ -35,6 +35,11 @@ public class SmtpEmailGateway implements EmailGateway {
                         + setupUrl);
     }
 
+    @Override
+    public void sendCourseRegistration(String recipient, String body) {
+        send(recipient, "EduLearn - Đăng ký khóa học thành công", body);
+    }
+
     private void send(String recipient, String subject, String body) {
         SimpleMailMessage message = new SimpleMailMessage();
         message.setFrom(sender);

@@ -36,7 +36,7 @@ public class MediaService {
             course = courses.findForUpdate(courseId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));
             if (!course.getExpert().getId().equals(user.getId())) throw new ApiException(HttpStatus.FORBIDDEN, "Khóa học không thuộc bạn.");
             if (course.getStatus() != CourseStatus.DRAFT && course.getStatus() != CourseStatus.REJECTED
-                && !(course.getStatus() == CourseStatus.PUBLISHED && "COURSE_IMAGE".equals(purpose)))
+                && course.getStatus() != CourseStatus.PUBLISHED)
                 throw new ApiException(HttpStatus.CONFLICT, "Khóa học hiện không cho phép thay đổi nội dung này.");
         } else if ("CONTENT_IMAGE".equals(purpose)) {
             // Any authenticated account can upload an article image for manager review.

@@ -23,6 +23,7 @@ public class ExpertQuestionService {
     private final MediaService media;
     private final EntityManager em;
     private final Validator validator;
+    private final CourseContentEditing editing;
 
     @Transactional(readOnly=true)
     public Page<QuestionResponse> list(Long courseId, String email, String search, String type, Boolean active, int page, int size) {
@@ -38,10 +39,11 @@ public class ExpertQuestionService {
         Specification<Question> spec = (root, query, cb) -> {
             var filters = new ArrayList<jakarta.persistence.criteria.Predicate>();
             filters.add(cb.equal(root.get("course").get("id"), courseId));
+            filters.add(cb.or(cb.isNull(root.get("status")),cb.notEqual(root.get("status"),"RETIRED")));
             filters.add(cb.like(cb.lower(root.get("content")), pattern, '\\'));
             if (!type.isBlank()) filters.add(cb.equal(root.get("type"), type));
             if (active != null) filters.add(cb.equal(root.get("active"), active));
-            if (lessonId != null) filters.add(lessonId==0 ? cb.isNull(root.get("lesson")) : cb.equal(root.get("lesson").get("id"),lessonId));
+            if (lessonId != null) filters.add(lessonId==0 ? cb.isEmpty(root.get("lessons")) : cb.equal(root.join("lessons").get("id"),lessonId));
             return cb.and(filters.toArray(jakarta.persistence.criteria.Predicate[]::new));
         };
         return questions.findAll(spec, PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "id"))).map(QuestionResponse::from);
@@ -79,7 +81,8 @@ public class ExpertQuestionService {
             throw bad("Các đáp án không được trùng nhau.");
     }
     private void apply(Question q, QuestionRequest r, String email) {
-        q.setLesson(r.lessonId()==null?null:scopedLesson(q.getCourse().getId(),r.lessonId()));
+        // Legacy clients may add one assignment; editing content never clears other lessons.
+        if(r.lessonId()!=null) q.getLessons().add(scopedLesson(q.getCourse().getId(),r.lessonId()));
         q.setContent(r.content().trim()); q.setType(r.type()); q.setQuestionType(r.type());
         q.setExplanation(r.explanation()); q.setActive(r.active()); q.setStatus(r.active() ? "ACTIVE" : "INACTIVE");
         q.setImage(media.attachment(r.imageMediaId(), email, q.getCourse().getId(), "QUESTION_IMAGE"));
@@ -93,8 +96,7 @@ public class ExpertQuestionService {
     public Course owned(Long courseId, String email, boolean write) {
         Course course = (write ? courses.findForUpdate(courseId) : courses.findById(courseId)).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));
         if (!course.getExpert().getEmail().equalsIgnoreCase(email)) throw new ApiException(HttpStatus.FORBIDDEN, "Khóa học không thuộc bạn.");
-        if (write && course.getStatus() != CourseStatus.DRAFT && course.getStatus() != CourseStatus.REJECTED)
-            throw conflict("Chỉ được thay đổi câu hỏi khi khóa học là Nháp hoặc Bị từ chối.");
+        if (write) editing.begin(course);
         return course;
     }
     private Question question(Long courseId, Long id) {

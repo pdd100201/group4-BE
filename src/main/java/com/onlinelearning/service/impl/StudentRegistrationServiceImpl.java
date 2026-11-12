@@ -17,6 +17,7 @@ import java.time.Instant;
 @Service @RequiredArgsConstructor @Transactional
 public class StudentRegistrationServiceImpl implements StudentRegistrationService {
     private final com.onlinelearning.service.NotificationEvents notificationEvents;
+    private final com.onlinelearning.service.RegistrationEmailService registrationEmails;
     private final CourseRepository courses;
     private final CoursePackageRepository packages;
     private final CourseRegistrationRepository registrations;
@@ -50,6 +51,7 @@ public class StudentRegistrationServiceImpl implements StudentRegistrationServic
         // Payment owns activation. No Payment/Transaction, validity or learning access here.
         registrations.saveAndFlush(r);
         notificationEvents.registrationCreated(r);
+        registrationEmails.registrationCreated(r);
         return StudentRegistrationResponse.from(r,false);
     }
 

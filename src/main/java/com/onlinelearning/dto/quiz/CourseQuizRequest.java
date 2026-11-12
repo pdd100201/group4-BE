@@ -12,7 +12,7 @@ public record CourseQuizRequest(
     @NotNull @Min(1) Integer durationMinutes,
     @NotNull @Min(0) @Max(100) Integer passRate,
     @NotNull @Min(1) Integer maxAttempts,
-    @NotEmpty @Size(max=200) List<@NotNull @Valid Item> questions
+    @NotNull List<@NotNull @Valid Item> questions
 ) {
     public record Item(@Positive Long questionId, @NotNull @Min(1) Integer points,
                        @NotNull @Valid QuestionRequest question) {}

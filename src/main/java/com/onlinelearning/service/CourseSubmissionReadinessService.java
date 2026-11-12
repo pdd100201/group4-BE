@@ -34,12 +34,12 @@ public class CourseSubmissionReadinessService {
         long availablePackages=em.createQuery("select count(p) from CoursePackage p where p.course.id=:id and p.active=true",Long.class)
             .setParameter("id",course.getId()).getSingleResult();
         checks.add(new Check("PACKAGES","Có ít nhất một gói học đang mở đăng ký",availablePackages>0));
-        var lessons = em.createQuery("select l from Lesson l left join fetch l.video where l.course.id=:id order by l.id", Lesson.class)
+        var lessons = em.createQuery("select l from Lesson l left join fetch l.video where l.course.id=:id and l.active=true order by l.id", Lesson.class)
             .setParameter("id", course.getId()).getResultList();
         checks.add(new Check("LESSONS", "Có ít nhất một bài học; tất cả bài học Active, đủ tên/nội dung/thứ tự và video", !lessons.isEmpty() && lessons.stream().allMatch(l ->
             l.isActive() && text(l.getTitle()) && text(l.getContent()) && l.getPosition() != null && l.getPosition() > 0
             && l.getVideo() != null && "video".equals(l.getVideo().getResourceType()))));
-        var quizzes = em.createQuery("select q from Quiz q where q.course.id=:id", Quiz.class)
+        var quizzes = em.createQuery("select q from Quiz q where q.course.id=:id and q.active=true", Quiz.class)
             .setParameter("id", course.getId()).getResultList();
         checks.add(new Check("QUIZZES", "Có đúng một quiz toàn khóa đang hoạt động, đủ cấu hình và câu hỏi hợp lệ",
             quizzes.size() == 1 && quizReady(quizzes.getFirst())));

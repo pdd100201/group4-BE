@@ -69,7 +69,7 @@ public class CourseReviewChangesService {
             field(data,key+"type",label+" · Loại",q.getType());
             field(data,key+"explanation",label+" · Giải thích",q.getExplanation());
             field(data,key+"active",label+" · Hoạt động",q.isActive());
-            field(data,key+"lesson",label+" · Bài học",q.getLesson()==null?null:q.getLesson().getId());
+            field(data,key+"lesson",label+" · Các bài học",q.getLessons().stream().sorted(Comparator.comparing(Lesson::getId)).map(l->"#"+l.getId()+" "+l.getTitle()).toList());
             field(data,key+"status",label+" · Trạng thái",q.getStatus());
             field(data,key+"questionType",label+" · Kiểu câu hỏi",q.getQuestionType());
             data.put(key+"image",new ReviewField(label+" · Hình ảnh","image",q.getImage()==null?null:q.getImage().getSecureUrl()));
