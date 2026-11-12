@@ -92,8 +92,9 @@ public class CertificateService {
   cert.setExpertNameSnapshot(course.getExpert().getFullName());cert.setIssuerNameSnapshot(p.getIssuerName());
   var evidence=new LinkedHashMap<String,Object>();evidence.put("policyId",p.getId());evidence.put("policyVersion",p.getVersion());
   evidence.put("lessons",check.lessons().stream().map(Item::id).toList());
-  evidence.put("quizAttempts",em.createQuery("select a.id from QuizAttempt a where a.student.id=:student and a.quiz.id in :ids and a.passed=true and a.submittedAt is not null order by a.id",Long.class)
-   .setParameter("student",u.getId()).setParameter("ids",p.getRequiredQuizzes().keySet()).getResultList());
+  var quizIds=check.quizzes().stream().map(Item::id).toList();
+  evidence.put("quizAttempts",quizIds.isEmpty()?List.of():em.createQuery("select a.id from QuizAttempt a where a.student.id=:student and a.quiz.id in :ids and a.passed=true and a.submittedAt is not null order by a.id",Long.class)
+   .setParameter("student",u.getId()).setParameter("ids",quizIds).getResultList());
   cert.setEvidenceSnapshot(serialize(evidence));certificates.saveAndFlush(cert);
   record(cert,u,"ISSUED",null);
   notifications.send(u.getId(),"certificate-issued:"+cert.getId(),"CERTIFICATE_ISSUED","CERTIFICATE","Bạn đã nhận chứng nhận hoàn thành",
@@ -120,19 +121,20 @@ public class CertificateService {
   if(c.getStatus()!=CourseStatus.PUBLISHED)reasons.add("Khóa học hiện chưa được xuất bản.");
   if(registrations.countCurrentAccess(u.getId(),c.getId(),Instant.now())==0)reasons.add("Bạn cần quyền học còn hiệu lực để được cấp lần đầu.");
   List<Lesson> currentLessons=activeLessons(c.getId());
-  List<Quiz> currentQuizzes=quizRows(c.getId()).stream().filter(q->p.getRequiredQuizzes().containsKey(q.getId())).toList();
-  if(p.getRequiredLessons().isEmpty()||p.getRequiredQuizzes().isEmpty()
-    ||currentQuizzes.stream().anyMatch(q->!ready(q))
-    ||!Objects.equals(p.getContentFingerprint(),fingerprint(currentLessons,currentQuizzes)))
+  Set<Long> currentLessonIds=new HashSet<>(currentLessons.stream().map(Lesson::getId).toList());
+  // Legacy fingerprints include the question bank and cannot validate lessons independently.
+  if(currentLessonIds.isEmpty()||!currentLessonIds.equals(p.getRequiredLessons().keySet())
+    ||(p.getRequiredQuizzes().isEmpty()&&!Objects.equals(p.getContentFingerprint(),fingerprint(currentLessons))))
    reasons.add("Nội dung khóa học đã thay đổi. Quản lý cần cập nhật điều kiện chứng nhận.");
   Set<Long> completed=new HashSet<>(em.createQuery("select p.lesson.id from StudentLessonProgress p where p.student.id=:student and p.lesson.course.id=:course and p.completed=true and p.completedAt is not null",Long.class)
    .setParameter("student",u.getId()).setParameter("course",c.getId()).getResultList());
   Set<Long> passed=new HashSet<>(em.createQuery("select distinct a.quiz.id from QuizAttempt a where a.student.id=:student and a.quiz.course.id=:course and a.passed=true and a.submittedAt is not null",Long.class)
    .setParameter("student",u.getId()).setParameter("course",c.getId()).getResultList());
-  List<Item> lessonChecks=items(p.getRequiredLessons(),completed),quizChecks=items(p.getRequiredQuizzes(),passed);
+  List<Item> lessonChecks=items(p.getRequiredLessons(),completed);
+  var quizChecks=lessonAssessments.describe(c.getId()).stream()
+   .map(item->new Item(item.id()==null?-item.lessonId():item.id(),item.title(),item.id()!=null&&passed.contains(item.id()))).toList();
   if(lessonChecks.stream().anyMatch(i->!i.complete()))reasons.add("Chưa hoàn thành tất cả bài học bắt buộc.");
-  if(quizChecks.stream().anyMatch(i->!i.complete()))reasons.add("Chưa đạt tất cả bài kiểm tra bắt buộc.");
-  if(lessonAssessments.describe(c.getId()).stream().anyMatch(item->item.id()==null || !passed.contains(item.id()))) reasons.add("Chưa đạt câu hỏi của tất cả bài học.");
+  if(quizChecks.stream().anyMatch(i->!i.complete())) reasons.add("Chưa đạt câu hỏi của tất cả bài học.");
   return new Eligibility(c.getId(),c.getTitle(),true,reasons.isEmpty(),reasons,lessonChecks,quizChecks,null);
  }
 
@@ -144,7 +146,7 @@ public class CertificateService {
 
   Specification<Course> published=(r,q,cb)->cb.equal(r.get("status"),CourseStatus.PUBLISHED);
   List<Course> eligible=courses.findAll(spec.and(published),pageable.getSort()).stream()
-   .filter(c->!activeLessons(c.getId()).isEmpty()&&quizRows(c.getId()).stream().anyMatch(this::ready))
+   .filter(c->!activeLessons(c.getId()).isEmpty())
    .toList();
   List<CourseOption> options=eligible.stream().skip(pageable.getOffset()).limit(pageable.getPageSize())
    .map(this::courseOption).toList();
@@ -158,7 +160,7 @@ public class CertificateService {
   var current=policies.findFirstByCourseIdOrderByVersionDesc(courseId).orElse(null);
   return new PolicyOptions(courseId,c.getTitle(),c.getStatus().name(),
    activeLessons(courseId).stream().map(l->new Item(l.getId(),l.getTitle(),true)).toList(),
-   quizRows(courseId).stream().map(q->new Item(q.getId(),q.getTitle(),ready(q))).toList(),
+   List.of(),
    current==null?null:policyView(current),policies.findTop10ByCourseIdOrderByVersionDesc(courseId).stream().map(this::policyView).toList());
  }
  @Transactional public PolicyView savePolicy(String email,Long courseId,boolean enabled,String issuer,List<Long> quizIds,Integer expectedVersion){
@@ -169,13 +171,11 @@ public class CertificateService {
   String issuerName=text(issuer,160);
   if(quizIds==null||quizIds.size()>1000||new HashSet<>(quizIds).size()!=quizIds.size()||quizIds.stream().anyMatch(Objects::isNull))throw error(HttpStatus.BAD_REQUEST,"Danh sách quiz không hợp lệ.");
   List<Lesson> lessons=activeLessons(courseId);
-  List<Quiz> selected=quizRows(courseId).stream().filter(q->quizIds.contains(q.getId())).toList();
-  if(enabled&&(c.getStatus()!=CourseStatus.PUBLISHED||lessons.isEmpty()||selected.isEmpty()||selected.size()!=quizIds.size()||selected.stream().anyMatch(q->!ready(q))))
-   throw error(HttpStatus.BAD_REQUEST,"Cần khóa đã xuất bản, ít nhất một bài học và một quiz đã cấu hình hợp lệ.");
+  if(enabled&&(c.getStatus()!=CourseStatus.PUBLISHED||lessons.isEmpty()))
+   throw error(HttpStatus.BAD_REQUEST,"Cần khóa đã xuất bản và có ít nhất một bài học.");
   var p=new CertificatePolicy();p.setCourse(c);p.setVersion(version+1);p.setEnabled(enabled);p.setIssuerName(issuerName);p.setConfiguredBy(actor);
   lessons.forEach(l->p.getRequiredLessons().put(l.getId(),l.getTitle()));
-  selected.forEach(q->p.getRequiredQuizzes().put(q.getId(),q.getTitle()));
-  p.setContentFingerprint(fingerprint(lessons,selected));
+  p.setContentFingerprint(fingerprint(lessons));
   policies.saveAndFlush(p);return policyView(p);
  }
  public Page<AuditView> history(String email,Long id,int page){
@@ -205,25 +205,9 @@ public class CertificateService {
   };
  }
  private List<Lesson> activeLessons(Long id){return em.createQuery("select l from Lesson l where l.course.id=:id and l.active=true order by l.id",Lesson.class).setParameter("id",id).getResultList();}
- private List<Quiz> quizRows(Long id){return em.createQuery("select q from Quiz q where q.course.id=:id order by q.id",Quiz.class).setParameter("id",id).getResultList();}
- private boolean ready(Quiz q){
-  if(!q.isActive()||(q.getLesson()!=null&&!q.getLesson().isActive())||q.getDurationMinutes()==null||q.getDurationMinutes()<1||q.getPassRate()==null||q.getPassRate()<0||q.getPassRate()>100||q.getMaxAttempts()==null||q.getMaxAttempts()<1||q.getQuizQuestions().isEmpty())return false;
-  return q.getQuizQuestions().stream().allMatch(link->{
-   Question question=link.getQuestion();long correct=question.getOptions().stream().filter(QuestionOption::isCorrect).count();
-   return question.isActive()&&Set.of("SINGLE_CHOICE","MULTIPLE_CHOICE").contains(Objects.toString(question.getType(),""))
-    &&question.getOptions().size()>=2&&correct>0&&(!"SINGLE_CHOICE".equals(question.getType())||correct==1)&&link.getPoints()!=null&&link.getPoints()>0&&link.getPosition()!=null;
-  });
- }
- private String fingerprint(List<Lesson> lessons,List<Quiz> quizzes){
+ private String fingerprint(List<Lesson> lessons){
   var data=new ArrayList<String>();
   lessons.stream().sorted(Comparator.comparing(Lesson::getId)).forEach(l->data.add(serialize(Arrays.asList("lesson",l.getId(),l.getTitle(),l.getContent(),l.getVideo()==null?null:l.getVideo().getId()))));
-  quizzes.stream().sorted(Comparator.comparing(Quiz::getId)).forEach(q->{
-   data.add(serialize(Arrays.asList("quiz",q.getId(),q.getTitle(),q.isActive(),q.getPassRate(),q.getDurationMinutes(),q.getMaxAttempts(),q.getLesson()==null?null:q.getLesson().getId())));
-   q.getQuizQuestions().stream().sorted(Comparator.comparing(QuizQuestion::getId)).forEach(link->{
-    var question=link.getQuestion();data.add(serialize(Arrays.asList(link.getId(),link.getPoints(),link.getPosition(),question.getId(),question.getContent(),question.getType(),question.isActive())));
-    question.getOptions().stream().sorted(Comparator.comparing(QuestionOption::getId)).forEach(o->data.add(serialize(Arrays.asList(o.getId(),o.getContent(),o.isCorrect()))));
-   });
-  });
   try{return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(serialize(data).getBytes(StandardCharsets.UTF_8)));}
   catch(java.security.NoSuchAlgorithmException e){throw new IllegalStateException(e);}
  }
