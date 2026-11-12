@@ -15,8 +15,9 @@ public class ChatController {
     @GetMapping("/contact")
     public ChatContactResponse contact(@RequestParam Long peerId, @RequestParam Long courseId, org.springframework.security.core.Authentication actor) {
         var me = users.findByEmailIgnoreCase(actor.getName()).orElseThrow(() -> new com.onlinelearning.exception.ApiException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Tài khoản không tồn tại."));
-        var course = access.requireConversation(me.getId(), peerId, courseId);
-        return new ChatContactResponse(courseId, course.getTitle(), ChatUserResponse.from(users.findById(peerId).orElseThrow()));
+        access.requireConversation(me.getId(), peerId, courseId);
+        var course = access.requireSharedCourse(me.getId(), peerId);
+        return new ChatContactResponse(course.getId(), course.getTitle(), ChatUserResponse.from(users.findById(peerId).orElseThrow()));
     }
     @GetMapping("/users")
     public Page<ChatContactResponse> users(@RequestParam(defaultValue = "") String query, @RequestParam(defaultValue = "0") int page) {

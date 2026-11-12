@@ -37,23 +37,22 @@ public class ChatAccessService {
             throw badRequest("Tìm kiếm không hợp lệ.");
         User me = activeUser(userId);
         Instant now = Instant.now();
-        List<CourseRegistration> available = new ArrayList<>(registrations.findChatRegistrationsForStudent(userId, now));
-        available.addAll(registrations.findChatRegistrationsForExpert(userId, now));
-        var distinct = new LinkedHashMap<String, ChatContactResponse>();
-        for (CourseRegistration registration : available) {
+        var distinct = new LinkedHashMap<Long, ChatContactResponse>();
+        var matchingPeers = new java.util.HashSet<Long>();
+        String needle = query.trim().toLowerCase(Locale.ROOT);
+        for (CourseRegistration registration : availableRegistrations(userId, now)) {
             Course course = registration.getCourse();
             User peer = course.getExpert().getId().equals(me.getId()) ? registration.getStudent() : course.getExpert();
             if (!peer.isEnabled() || peer.isBlocked() || peer.getId().equals(me.getId())) continue;
-            distinct.putIfAbsent(course.getId() + ":" + peer.getId(),
-                new ChatContactResponse(course.getId(), course.getTitle(), ChatUserResponse.from(peer)));
+            distinct.merge(peer.getId(), new ChatContactResponse(course.getId(), course.getTitle(), ChatUserResponse.from(peer)),
+                (current, candidate) -> current.courseId() < candidate.courseId() ? current : candidate);
+            if (course.getTitle().toLowerCase(Locale.ROOT).contains(needle)
+                || peer.getFullName().toLowerCase(Locale.ROOT).contains(needle)) matchingPeers.add(peer.getId());
         }
-        String needle = query.trim().toLowerCase(Locale.ROOT);
         List<ChatContactResponse> matches = distinct.values().stream()
-            .filter(c -> c.courseTitle().toLowerCase(Locale.ROOT).contains(needle)
-                || c.peer().fullName().toLowerCase(Locale.ROOT).contains(needle))
-            .sorted(Comparator.comparing(ChatContactResponse::courseTitle, String.CASE_INSENSITIVE_ORDER)
-                .thenComparing(c -> c.peer().fullName(), String.CASE_INSENSITIVE_ORDER)
-                .thenComparing(ChatContactResponse::courseId).thenComparing(c -> c.peer().id()))
+            .filter(c -> matchingPeers.contains(c.peer().id()))
+            .sorted(Comparator.comparing((ChatContactResponse c) -> c.peer().fullName(), String.CASE_INSENSITIVE_ORDER)
+                .thenComparing(c -> c.peer().id()))
             .toList();
         long start = (long) page * 30;
         int from = (int) Math.min(start, matches.size());
@@ -80,6 +79,26 @@ public class ChatAccessService {
             : registrations.countCurrentAccess(studentId, courseId, Instant.now()) > 0;
         if (!canChat) throw forbidden();
         return course;
+    }
+
+    @Transactional(readOnly = true)
+    public Course requireSharedCourse(Long userId, Long peerId) {
+        if (peerId == null || peerId.equals(userId)) throw badRequest("Cuộc trò chuyện không hợp lệ.");
+        activeUser(userId);
+        activeUser(peerId);
+        return availableRegistrations(userId, Instant.now()).stream()
+            .filter(r -> r.getStudent().getId().equals(userId)
+                ? r.getCourse().getExpert().getId().equals(peerId)
+                : r.getStudent().getId().equals(peerId))
+            .map(CourseRegistration::getCourse)
+            .min(Comparator.comparing(Course::getId))
+            .orElseThrow(ChatAccessService::forbidden);
+    }
+
+    private List<CourseRegistration> availableRegistrations(Long userId, Instant now) {
+        var available = new ArrayList<>(registrations.findChatRegistrationsForStudent(userId, now));
+        available.addAll(registrations.findChatRegistrationsForExpert(userId, now));
+        return available;
     }
 
     private User activeUser(Long id) {
