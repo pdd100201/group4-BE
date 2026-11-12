@@ -39,11 +39,11 @@ public class CourseSubmissionReadinessService {
         checks.add(new Check("LESSONS", "Có ít nhất một bài học; tất cả bài học Active, đủ tên/nội dung/thứ tự và video", !lessons.isEmpty() && lessons.stream().allMatch(l ->
             l.isActive() && text(l.getTitle()) && text(l.getContent()) && l.getPosition() != null && l.getPosition() > 0
             && l.getVideo() != null && "video".equals(l.getVideo().getResourceType()))));
-        var quizzes = em.createQuery("select q from Quiz q where q.course.id=:id and q.active=true", Quiz.class)
+        var quizzes = em.createQuery("select q from Quiz q where q.course.id=:id and q.active=true and q.lesson is null", Quiz.class)
             .setParameter("id", course.getId()).getResultList();
         checks.add(new Check("QUIZZES", "Có đúng một quiz toàn khóa đang hoạt động, đủ cấu hình và câu hỏi hợp lệ",
             quizzes.size() == 1 && quizReady(quizzes.getFirst())));
-        boolean eligible = course.getStatus() == CourseStatus.DRAFT || course.getStatus() == CourseStatus.REJECTED;
+        boolean eligible = course.getDeletedAt() == null && !course.isDeletionPending() && (course.getStatus() == CourseStatus.DRAFT || course.getStatus() == CourseStatus.REJECTED);
         return new Readiness(eligible, eligible && checks.stream().allMatch(Check::complete), List.copyOf(checks));
     }
 

@@ -70,7 +70,9 @@ public class CourseModerationService {
     }
 
     private Course locked(Long id) {
-        return courses.findForUpdate(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));
+        Course course = courses.findForUpdate(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));
+        CourseDeletionService.requireMutable(course);
+        return course;
     }
     private User moderator(String email) {
         User actor = users.findByEmailIgnoreCase(email).orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "Tài khoản không hợp lệ."));

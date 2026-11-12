@@ -16,6 +16,19 @@ public class Course extends BaseEntity { @ManyToOne private MediaAsset thumbnail
     @Column(name="review_baseline", columnDefinition="json")
     private Map<String, ReviewField> reviewBaseline;
 
+    @Column(name="deletion_request_status", nullable=false, length=20)
+    private String deletionRequestStatus = "NONE";
+    @Column(name="deletion_request_reason", length=1000) private String deletionRequestReason;
+    @Column(name="deletion_requested_at") private java.time.Instant deletionRequestedAt;
+    @Column(name="deletion_review_reason", length=1000) private String deletionReviewReason;
+    @Column(name="deletion_reviewed_at") private java.time.Instant deletionReviewedAt;
+    @ManyToOne @JoinColumn(name="deletion_reviewed_by_id") private User deletionReviewedBy;
+    @Column(name="deleted_at") private java.time.Instant deletedAt;
+    public boolean isDeletionPending() { return "PENDING".equals(deletionRequestStatus); }
+    public boolean requiresDeletionApproval() {
+        return reviewBaseline != null || status == CourseStatus.PUBLISHED || status == CourseStatus.ARCHIVED || status == CourseStatus.APPROVED;
+    }
+
     public void requireReviewAfterEdit() {
         if (status == CourseStatus.PUBLISHED) {
             status = CourseStatus.DRAFT;

@@ -31,6 +31,7 @@ public class CoursePackageServiceImpl implements CoursePackageService {
 
     public List<CoursePackageResponse> update(Long id, String email, CoursePackagesRequest request) {
         Course course = owned(id, email, true);
+        com.onlinelearning.service.CourseDeletionService.requireMutable(course);
         if (course.getStatus()!=CourseStatus.DRAFT && course.getStatus()!=CourseStatus.REJECTED && course.getStatus()!=CourseStatus.PUBLISHED)
             throw new ApiException(HttpStatus.CONFLICT,"Khóa học hiện không cho phép sửa gói giá.");
         if (request == null || !validator.validate(request).isEmpty())

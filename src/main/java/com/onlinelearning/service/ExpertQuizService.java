@@ -91,7 +91,7 @@ public class ExpertQuizService {
     public QuizResponse create(Long courseId, String email, QuizRequest request) {
         Course c = owned(courseId, email, true);
         editable(c);
-        if (quizzes.findByCourseIdOrderByIdAsc(courseId).stream().anyMatch(Quiz::isActive))
+        if (quizzes.findByCourseIdOrderByIdAsc(courseId).stream().anyMatch(q->q.isActive() && q.getLesson()==null))
             throw new ApiException(HttpStatus.CONFLICT, "Mỗi khóa học chỉ có một quiz. Hãy chỉnh sửa quiz hiện có.");
         if (request.lessonId() != null)
             throw new ApiException(HttpStatus.BAD_REQUEST, "Quiz đánh giá toàn khóa, không gắn riêng bài học.");

@@ -35,6 +35,7 @@ public class MediaService {
             if (courseId == null || user.getRoles().stream().noneMatch(r -> "EXPERT".equals(r.getCode()))) throw new ApiException(HttpStatus.FORBIDDEN, "Chỉ Expert sở hữu khóa học được tải nội dung lên.");
             course = courses.findForUpdate(courseId).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));
             if (!course.getExpert().getId().equals(user.getId())) throw new ApiException(HttpStatus.FORBIDDEN, "Khóa học không thuộc bạn.");
+            CourseDeletionService.requireMutable(course);
             if (course.getStatus() != CourseStatus.DRAFT && course.getStatus() != CourseStatus.REJECTED
                 && course.getStatus() != CourseStatus.PUBLISHED)
                 throw new ApiException(HttpStatus.CONFLICT, "Khóa học hiện không cho phép thay đổi nội dung này.");

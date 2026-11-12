@@ -16,6 +16,7 @@ import java.time.Instant;
 @Service @RequiredArgsConstructor @Transactional
 public class ExpertCourseService {
     private final CourseRepository courses;
+    private final CourseDeletionService deletion;
     private final UserRepository users;
     private final AuditLogRepository auditLogs;
     private final EntityManager entityManager;
@@ -26,7 +27,7 @@ public class ExpertCourseService {
     @Transactional(readOnly=true)
     public Page<ExpertCourseResponse> list(String email, String search, String category, CourseStatus status, int page, int size) {
         User actor = user(email);
-        Specification<Course> spec = (root, query, cb) -> cb.equal(root.get("expert").get("id"), actor.getId());
+        Specification<Course> spec = (root, query, cb) -> cb.and(cb.equal(root.get("expert").get("id"), actor.getId()), cb.isNull(root.get("deletedAt")));
         if (search != null && !search.isBlank()) {
             String pattern = "%" + search.trim().toLowerCase().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
             spec = spec.and((root, query, cb) -> cb.like(cb.lower(root.get("title")), pattern, '\\'));
@@ -63,24 +64,7 @@ public class ExpertCourseService {
         return ExpertCourseResponse.from(c);
     }
 
-    public void delete(Long id, String email) {
-        Course c = owned(id, email, true);
-        if (c.getStatus() != CourseStatus.DRAFT && c.getStatus() != CourseStatus.REJECTED)
-            throw new ApiException(HttpStatus.CONFLICT, "Expert chỉ được xóa khóa học Nháp hoặc Bị từ chối.");
-        for (String entity : new String[]{"CourseRegistration", "Lesson", "Question", "Quiz", "CertificatePolicy", "CourseCertificate"}) {
-            Long count = entityManager.createQuery("select count(e) from " + entity + " e where e.course.id = :id", Long.class)
-                .setParameter("id", id).getSingleResult();
-            if (count > 0) throw new ApiException(HttpStatus.CONFLICT, "Không thể xóa khóa học còn nội dung hoặc dữ liệu đăng ký liên quan.");
-        }
-        record(c, "COURSE_DELETED");
-        entityManager.createQuery("select a from MediaAsset a where a.course.id=:id", MediaAsset.class).setParameter("id", id).getResultList().forEach(a -> a.setCourse(null));
-        entityManager.flush();
-        entityManager.createQuery("delete from CoursePackage p where p.course.id=:id").setParameter("id",id).executeUpdate();
-        // Bulk deletion bypasses managed package objects; detach them before deleting the parent.
-        entityManager.clear();
-        entityManager.createQuery("delete from Course c where c.id=:id").setParameter("id",id).executeUpdate();
-        entityManager.flush();
-    }
+    public void delete(Long id, String email) { deletion.deleteDraft(id, email); }
 
     private Course owned(Long id, String email, boolean lock) {
         Course c = (lock ? courses.findForUpdate(id) : courses.findById(id))
@@ -92,6 +76,7 @@ public class ExpertCourseService {
         return users.findByEmailIgnoreCase(email).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy tài khoản."));
     }
     private void editable(Course c) {
+        CourseDeletionService.requireMutable(c);
         if (c.getStatus() != CourseStatus.DRAFT && c.getStatus() != CourseStatus.REJECTED && c.getStatus() != CourseStatus.PUBLISHED)
             throw new ApiException(HttpStatus.CONFLICT, "Chỉ được sửa khóa học Nháp, Bị từ chối hoặc Đã xuất bản.");
     }

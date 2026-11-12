@@ -78,7 +78,7 @@ public class CourseReviewChangesService {
                 field(data,key+"option."+o.getId()+".correct",label+" · Đáp án đúng #"+o.getId(),o.isCorrect());
             }
         }
-        for(var q:em.createQuery("select q from Quiz q where q.course.id=:id order by q.id",Quiz.class).setParameter("id",c.getId()).getResultList()) {
+        for(var q:em.createQuery("select q from Quiz q where q.course.id=:id and q.lesson is null order by q.id",Quiz.class).setParameter("id",c.getId()).getResultList()) {
             String key="quiz."+q.getId()+".",label="Quiz #"+q.getId();
             field(data,key+"title",label+" · Tên",q.getTitle());
             field(data,key+"duration",label+" · Thời lượng (phút)",q.getDurationMinutes());

@@ -10,5 +10,6 @@ public class StudentLessonController {
     private final StudentLessonService lessons;
     @GetMapping("/learning") public StudentLessonService.LearningCourse course(@PathVariable Long courseId,Authentication actor) { return lessons.read(courseId,null,actor.getName()); }
     @GetMapping("/lessons/{id}") public StudentLessonService.LearningCourse lesson(@PathVariable Long courseId,@PathVariable Long id,Authentication actor) { return lessons.read(courseId,id,actor.getName()); }
+    @PostMapping("/lessons/{id}/questions") public StudentLessonService.PreparedQuestions questions(@PathVariable Long courseId,@PathVariable Long id,Authentication actor) { return lessons.prepareQuestions(courseId,id,actor.getName()); }
     @PostMapping("/lessons/{id}/complete") public StudentLessonService.LearningCourse complete(@PathVariable Long courseId,@PathVariable Long id,Authentication actor) { return lessons.complete(courseId,id,actor.getName()); }
 }

@@ -22,7 +22,7 @@ public class ManagerCourseService {
     private final com.onlinelearning.repository.CoursePackageRepository packages;
 
     public Page<ManagerCourseResponse> list(String search, String category, CourseStatus status, int page, int size) {
-        Specification<Course> spec = (root, query, cb) -> cb.conjunction();
+        Specification<Course> spec = (root, query, cb) -> cb.isNull(root.get("deletedAt"));
         if (search != null && !search.isBlank()) {
             String pattern = "%" + search.trim().toLowerCase().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%";
             spec = spec.and((root, query, cb) -> cb.like(cb.lower(root.get("title")), pattern, '\\'));
@@ -37,6 +37,7 @@ public class ManagerCourseService {
 
     public ManagerCourseResponse get(Long id) {
         Course c = courses.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));
+        if (c.getDeletedAt() != null) throw new ApiException(HttpStatus.NOT_FOUND, "Khóa học đã bị xóa.");
         List<LessonPreview> lessons = em.createQuery("select l from Lesson l where l.course.id = :id order by l.position, l.id", Lesson.class)
             .setParameter("id", id).getResultList().stream()
             .map(l -> new LessonPreview(l.getId(), l.getTitle(), l.getContent(), l.getPosition(), l.isActive(), l.getVideo() == null ? null : l.getVideo().getId())).toList();

@@ -20,6 +20,7 @@ import java.util.*;
 
 @Service @RequiredArgsConstructor @Transactional(readOnly=true)
 public class CertificateService {
+ private final LessonAssessmentService lessonAssessments;
  private static final String CODE_ALPHABET="0123456789ABCDEFGHJKMNPQRSTVWXYZ";
  private static final SecureRandom CODE_RANDOM=new SecureRandom();
  private final UserRepository users;
@@ -130,7 +131,8 @@ public class CertificateService {
    .setParameter("student",u.getId()).setParameter("course",c.getId()).getResultList());
   List<Item> lessonChecks=items(p.getRequiredLessons(),completed),quizChecks=items(p.getRequiredQuizzes(),passed);
   if(lessonChecks.stream().anyMatch(i->!i.complete()))reasons.add("Chưa hoàn thành tất cả bài học bắt buộc.");
-  if(quizChecks.stream().anyMatch(i->!i.complete()))reasons.add("Chưa đạt tất cả quiz bắt buộc.");
+  if(quizChecks.stream().anyMatch(i->!i.complete()))reasons.add("Chưa đạt tất cả bài kiểm tra bắt buộc.");
+  if(lessonAssessments.describe(c.getId()).stream().anyMatch(item->item.id()==null || !passed.contains(item.id()))) reasons.add("Chưa đạt câu hỏi của tất cả bài học.");
   return new Eligibility(c.getId(),c.getTitle(),true,reasons.isEmpty(),reasons,lessonChecks,quizChecks,null);
  }
 

@@ -17,6 +17,7 @@ public class CourseCurriculumService {
  private final LessonRepository lessons;
  private final EntityManager em;
  private final CourseContentEditing editing;
+ private final LessonAssessmentService lessonAssessments;
  public record QuizItem(Long id,String title,boolean active,int questionCount,Integer durationMinutes,Integer passRate,Integer maxAttempts) {}
  public record LessonItem(Long id,String title,Integer position,boolean active,long bankQuestions,List<QuizItem> quizzes) {}
  public record QuestionItem(Long id,Long quizId,Integer position,String content,List<Long> lessonIds) {}
@@ -26,7 +27,7 @@ public class CourseCurriculumService {
  public Outline read(Long courseId,String email) {
   owned(courseId,email,false);
   var rows=lessons.findByCourseIdOrderByPositionAscIdAsc(courseId).stream().filter(Lesson::isActive).toList();
-  var quizRows=em.createQuery("select q from Quiz q where q.course.id=:id and q.active=true order by q.id",Quiz.class).setParameter("id",courseId).getResultList();
+  var quizRows=em.createQuery("select q from Quiz q where q.course.id=:id and q.active=true and q.lesson is null order by q.id",Quiz.class).setParameter("id",courseId).getResultList();
 
   Map<Long,List<QuizItem>> grouped=new HashMap<>();
   Map<Long,Long> quizCounts=new HashMap<>();
@@ -74,6 +75,7 @@ public class CourseCurriculumService {
   Map<Long,Question> available=new HashMap<>();questions.forEach(q->available.put(q.getId(),q));
   if(selected.stream().anyMatch(id->!available.containsKey(id))) throw error(HttpStatus.BAD_REQUEST,"Câu hỏi không thuộc khóa học này.");
   if(selected.stream().anyMatch(id->!current.contains(id) && !available.get(id).isActive())) throw error(HttpStatus.CONFLICT,"Không thể thêm câu hỏi đã ngừng hoạt động.");
+  if(!current.equals(selected)) lessonAssessments.invalidate(courseId,lessonId);
   for(Question question:questions) {
    if(selected.contains(question.getId()) && !current.contains(question.getId())) question.getLessons().add(lesson);
    else if(!selected.contains(question.getId()) && current.contains(question.getId())) question.getLessons().removeIf(l->l.getId().equals(lessonId));

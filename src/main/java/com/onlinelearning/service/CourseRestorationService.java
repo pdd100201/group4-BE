@@ -27,6 +27,7 @@ public class CourseRestorationService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Lý do khôi phục phải có từ 1 đến 255 ký tự.");
         Course course = courses.findForUpdate(id)
             .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy khóa học."));
+        CourseDeletionService.requireMutable(course);
         if (course.getStatus() != CourseStatus.ARCHIVED)
             throw new ApiException(HttpStatus.CONFLICT, "Chỉ khóa học ARCHIVED mới được khôi phục.");
         course.setStatus(CourseStatus.PUBLISHED);
