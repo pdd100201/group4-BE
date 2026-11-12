@@ -73,9 +73,12 @@ public class ChatAttachmentService {
         ChatAttachment attachment = files.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tệp không tồn tại."));
         if (attachment.getCourse() == null || attachment.getRecipient() == null)
             throw new ApiException(HttpStatus.FORBIDDEN, "Tệp không thuộc cuộc trò chuyện trong khóa học.");
-        Long peer = attachment.getOwner().getId().equals(me) ? attachment.getRecipient().getId() : attachment.getOwner().getId();
-        access.requireConversation(me, peer, attachment.getCourse().getId());
-        if (!attachment.getOwner().getId().equals(me)) {
+        boolean owner = attachment.getOwner().getId().equals(me);
+        if (!owner && !attachment.getRecipient().getId().equals(me))
+            throw new ApiException(HttpStatus.FORBIDDEN, "Bạn không có quyền xem tệp.");
+        Long peer = owner ? attachment.getRecipient().getId() : attachment.getOwner().getId();
+        access.requireSharedCourse(me, peer);
+        if (!owner) {
             // A staged upload is owner-only. Other users need membership of its committed message.
             ChatMessage message = messages.findByAttachmentId(id).orElseThrow(() -> new ApiException(HttpStatus.FORBIDDEN, "Bạn không có quyền xem tệp."));
             if (message.getRecipient() != null && !message.getRecipient().getId().equals(me))

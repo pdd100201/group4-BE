@@ -14,19 +14,19 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     @EntityGraph(attributePaths = {"sender", "recipient", "course"})
     @Query("""
         select m from ChatMessage m where
-        m.course.id = :courseId and
+        m.course is not null and
         ((m.sender.id = :me and m.recipient.id = :peer) or (m.sender.id = :peer and m.recipient.id = :me))
         and (:before is null or m.id < :before) order by m.id desc
         """)
-    List<ChatMessage> privateHistory(@Param("me") Long me, @Param("peer") Long peer, @Param("courseId") Long courseId,
+    List<ChatMessage> privateHistory(@Param("me") Long me, @Param("peer") Long peer,
                                     @Param("before") Long before, Pageable pageable);
     @EntityGraph(attributePaths = {"sender", "recipient", "course"})
     @Query("""
         select m from ChatMessage m where
-        m.course.id = :courseId and
+        m.course is not null and
         ((m.sender.id = :me and m.recipient.id = :peer) or (m.sender.id = :peer and m.recipient.id = :me))
         and lower(m.content) like lower(:pattern) escape '!'
         and (:before is null or m.id < :before) order by m.id desc
         """)
-    List<ChatMessage> searchPrivate(Long me, Long peer, Long courseId, String pattern, Long before, Pageable pageable);
+    List<ChatMessage> searchPrivate(Long me, Long peer, String pattern, Long before, Pageable pageable);
 }

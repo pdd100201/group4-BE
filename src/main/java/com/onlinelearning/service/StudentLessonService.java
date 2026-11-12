@@ -19,7 +19,6 @@ public class StudentLessonService {
     private final CourseRegistrationRepository registrations;
     private final StudentLessonProgressRepository progress;
     private final jakarta.persistence.EntityManager em;
-    private final QuizRepository quizzes;
     private final LessonAssessmentService lessonAssessments;
     public record LessonItem(Long id,String title,Integer position,boolean completed) {}
     public record LessonContent(Long id,String title,String content,Long videoMediaId) {}

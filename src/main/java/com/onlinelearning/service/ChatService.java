@@ -31,7 +31,7 @@ public class ChatService {
         if (before != null && before <= 0) throw badRequest("Mốc tin nhắn không hợp lệ.");
         access.requireConversation(me, peerId, courseId);
         var page = PageRequest.of(0, 50);
-        var rows = messages.privateHistory(me, peerId, courseId, before, page);
+        var rows = messages.privateHistory(me, peerId, before, page);
         // IDs provide stable history pagination, including messages with identical timestamps.
         return rows.stream().map(ChatMessageResponse::from).sorted(Comparator.comparing(ChatMessageResponse::id)).toList();
     }
@@ -46,7 +46,7 @@ public class ChatService {
         // Escape LIKE metacharacters: user input is a literal substring, not a database pattern.
         String pattern = "%" + escapeSearch(query.trim()) + "%";
         var page = PageRequest.of(0, 50);
-        var rows = messages.searchPrivate(me, peerId, courseId, pattern, before, page);
+        var rows = messages.searchPrivate(me, peerId, pattern, before, page);
         return rows.stream().map(ChatMessageResponse::from).toList();
     }
 
