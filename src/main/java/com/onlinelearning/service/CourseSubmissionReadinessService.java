@@ -41,7 +41,7 @@ public class CourseSubmissionReadinessService {
             && l.getVideo() != null && "video".equals(l.getVideo().getResourceType()))));
         var quizzes = em.createQuery("select q from Quiz q where q.course.id=:id and q.active=true and q.lesson is null", Quiz.class)
             .setParameter("id", course.getId()).getResultList();
-        checks.add(new Check("QUIZZES", "Có đúng một quiz toàn khóa đang hoạt động, đủ cấu hình và câu hỏi hợp lệ",
+        checks.add(new Check("QUIZZES", "Có ngân hàng câu hỏi đang hoạt động, đủ cấu hình và câu hỏi hợp lệ",
             quizzes.size() == 1 && quizReady(quizzes.getFirst())));
         boolean eligible = course.getDeletedAt() == null && !course.isDeletionPending() && (course.getStatus() == CourseStatus.DRAFT || course.getStatus() == CourseStatus.REJECTED);
         return new Readiness(eligible, eligible && checks.stream().allMatch(Check::complete), List.copyOf(checks));

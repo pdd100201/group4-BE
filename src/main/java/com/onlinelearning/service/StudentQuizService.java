@@ -64,6 +64,7 @@ public class StudentQuizService {
     }
     private Quiz available(Long id,User student) {
         Quiz quiz=quizzes.findById(id).orElseThrow(()->new ApiException(HttpStatus.NOT_FOUND,"Không tìm thấy bài kiểm tra."));
+        if(quiz.getLesson()==null) throw new ApiException(HttpStatus.NOT_FOUND,"Đây là ngân hàng câu hỏi. Hãy mở câu hỏi của từng bài học.");
         if(!quiz.isActive() || quiz.getCourse().getStatus()!=CourseStatus.PUBLISHED || quiz.getLesson()!=null && !quiz.getLesson().isActive()) throw conflict("Bài kiểm tra hiện không khả dụng.");
         if(registrations.countCurrentAccess(student.getId(),quiz.getCourse().getId(),Instant.now())==0)throw new ApiException(HttpStatus.FORBIDDEN,"Bạn không có quyền học hoặc đăng ký đã hết hạn.");
         var items=items(quiz);

@@ -35,12 +35,8 @@ public class StudentLessonService {
         int count=(int)outline.stream().filter(l->completed.contains(l.getId())).count();
         Set<Long> passed=new HashSet<>(em.createQuery("select distinct a.quiz.id from QuizAttempt a where a.student.id=:student and a.quiz.course.id=:course and a.passed=true and a.submittedAt is not null",Long.class)
             .setParameter("student",student.getId()).setParameter("course",courseId).getResultList());
-        var courseQuizzes=quizzes.findByCourseIdOrderByIdAsc(courseId).stream().filter(q->q.isActive() && q.getLesson()==null)
-            .filter(q->q.getLesson()==null || q.getLesson().isActive())
-            .filter(q->!q.getQuizQuestions().isEmpty()).toList();
         List<LessonQuiz> assessmentRows=new ArrayList<>();
         for(var item:lessonAssessments.describe(courseId)) assessmentRows.add(new LessonQuiz(item.id(),item.lessonId(),item.title(),item.durationMinutes(),item.passRate(),item.questionCount(),item.id()!=null && passed.contains(item.id())));
-        for(var quiz:courseQuizzes) assessmentRows.add(new LessonQuiz(quiz.getId(),null,"Câu hỏi tổng hợp",quiz.getDurationMinutes(),quiz.getPassRate(),quiz.getQuizQuestions().size(),passed.contains(quiz.getId())));
         int passedCount=(int)assessmentRows.stream().filter(LessonQuiz::passed).count();
         int total=outline.size()+assessmentRows.size();
         int percent=total==0?0:(count+passedCount)*100/total;
