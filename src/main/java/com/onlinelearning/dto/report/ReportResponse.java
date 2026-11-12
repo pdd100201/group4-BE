@@ -1,4 +1,4 @@
 package com.onlinelearning.dto.report;
 import com.onlinelearning.dto.management.ManagementPage;
 import java.math.BigDecimal;
-public record ReportResponse(ReportKind kind, ManagementPage<ReportRow> records, BigDecimal totalAmount) {}
+public record ReportResponse(ReportKind kind, ManagementPage<ReportRow> records, BigDecimal totalAmount, java.util.Map<String, Long> metrics) {}

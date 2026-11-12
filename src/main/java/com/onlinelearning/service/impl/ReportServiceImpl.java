@@ -22,7 +22,7 @@ public class ReportServiceImpl implements ReportService {
     private final ReportRepository reports;
 
     @Override
-    public List<ReportKind> available() { authorize(); return List.of(ReportKind.values()); }
+    public List<ReportKind> available() { authorize(); return List.of(ReportKind.REVENUE, ReportKind.COURSES); }
 
     @Override
     public ReportResponse read(ReportKind kind, Long courseId, RegistrationStatus status,
@@ -35,7 +35,7 @@ public class ReportServiceImpl implements ReportService {
                 Math.multiplyExact(page, size), size);
         var records = new ManagementPage<>(result.rows(), page, size, result.count(),
                 (int) ((result.count() + size - 1) / size));
-        return new ReportResponse(kind, records, result.amount());
+        return new ReportResponse(kind, records, result.amount(), result.metrics());
     }
 
     @Override
@@ -46,14 +46,18 @@ public class ReportServiceImpl implements ReportService {
         StringBuilder csv = new StringBuilder("\uFEFF");
         append(csv, kind == ReportKind.REGISTRATIONS
                 ? List.of("Registration ID", "Course", "Student", "Email", "Status", "Created at (UTC)", "Amount (VND)", "Demo")
-                : List.of("Course ID", "Course", "Status", kind == ReportKind.COURSES ? "Registrations" : "Successful payments", "Revenue (VND)", "Demo"));
+                : kind == ReportKind.COURSES
+                    ? List.of("Mã khóa học", "Khóa học", "Trạng thái", "Số bài học", "Số câu hỏi", "Dữ liệu mẫu")
+                    : List.of("Mã khóa học", "Khóa học", "Thanh toán thành công", "Doanh thu (VND)", "Dữ liệu mẫu"));
         for (int page = 0; page < first.records().totalPages(); page++) {
             var data = page == 0 ? first : read(kind, courseId, status, from, to, page, 100);
             for (var row : data.records().items()) {
                 if (kind == ReportKind.REGISTRATIONS)
                     append(csv, Arrays.asList(row.id(), row.courseTitle(), row.studentName(), row.studentEmail(),
                             row.status(), row.createdAt(), row.amount(), row.demo()));
-                else append(csv, Arrays.asList(row.id(), row.courseTitle(), row.status(), row.count(), row.amount(), row.demo()));
+                else if (kind == ReportKind.COURSES)
+                    append(csv, Arrays.asList(row.id(), row.courseTitle(), row.status(), row.lessonCount(), row.questionCount(), row.demo()));
+                else append(csv, Arrays.asList(row.id(), row.courseTitle(), row.count(), row.amount(), row.demo()));
             }
         }
         return csv.toString().getBytes(StandardCharsets.UTF_8);

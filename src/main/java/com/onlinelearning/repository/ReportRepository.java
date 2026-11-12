@@ -22,10 +22,17 @@ public class ReportRepository {
             + "and t.id = (select min(ft.id) from Transaction ft where ft.payment = p "
             + "and (ft.type in ('VNPAY_SUCCEEDED', 'SEPAY_SUCCEEDED') or (ft.type not like 'VNPAY_%' and ft.type not like 'SEPAY_%')))";
 
-    public record Result(List<ReportRow> rows, long count, BigDecimal amount) {}
+    // A registration is confirmed by a successful payment, even if the student later cancels access.
+    private static final String CONFIRMED_REGISTRATION = "exists (select p.id from Payment p where p.registration = r "
+            + "and p.status = :success and " + FIRST_TRANSACTION + "))";
+    private static final String REGISTRATION_PAID_AMOUNT = "(select coalesce(sum(p.amount), 0) from Payment p "
+            + "where p.registration = r and p.status = :success and " + FIRST_TRANSACTION + "))";
+
+    public record Result(List<ReportRow> rows, long count, BigDecimal amount, Map<String, Long> metrics) {}
 
     public Result read(ReportKind kind, Long courseId, RegistrationStatus status,
             Instant from, Instant until, int offset, int size) {
+        if (kind == ReportKind.COURSES) return content(courseId, from, until, offset, size);
         Map<String, Object> params = new HashMap<>();
         String course = courseId == null ? "" : " and c.id = :courseId";
         if (courseId != null) params.put("courseId", courseId);
@@ -38,16 +45,19 @@ public class ReportRepository {
         String countQuery;
         String amountQuery;
         if (kind == ReportKind.REGISTRATIONS) {
-            String registrations = " from CourseRegistration r join r.course c where 1=1"
+            params.put("success", PaymentStatus.SUCCEEDED);
+            String registrations = " from CourseRegistration r join r.course c where " + CONFIRMED_REGISTRATION
                     + course + registrationDates;
             if (status != null) {
                 registrations += " and r.status = :status";
                 params.put("status", status);
             }
-            query = "select new " + DTO + "(r.id, c.title, r.status, r.amount, r.student.fullName, "
+            query = "select new " + DTO + "(r.id, c.title, r.status, " + REGISTRATION_PAID_AMOUNT + ", r.student.fullName, "
                     + "r.student.email, r.createdAt, r.note)" + registrations + " order by r.id desc";
             countQuery = "select count(r.id)" + registrations;
-            amountQuery = "select coalesce(sum(r.amount), 0)" + registrations;
+            amountQuery = "select coalesce(sum(p.amount), 0) from Payment p join p.registration r join r.course c "
+                    + "where p.status = :success and " + FIRST_TRANSACTION + ")" + course + registrationDates
+                    + (status == null ? "" : " and r.status = :status");
         } else {
             params.put("success", PaymentStatus.SUCCEEDED);
             amountQuery = "select coalesce(sum(p.amount), 0)" + payments;
@@ -59,7 +69,7 @@ public class ReportRepository {
                 String correlatedPayments = "select coalesce(sum(p.amount), 0) from Payment p "
                         + "where p.registration.course = c and p.status = :success and " + paymentDates;
                 query = "select new " + DTO + "(c.id, c.title, c.status, "
-                        + "(select count(r.id) from CourseRegistration r where r.course = c"
+                        + "(select count(r.id) from CourseRegistration r where r.course = c and " + CONFIRMED_REGISTRATION
                         + registrationDates + "), (" + correlatedPayments + "))"
                         + " from Course c where 1=1" + course + " order by c.id desc";
                 countQuery = "select count(c.id) from Course c where 1=1" + course;
@@ -69,7 +79,31 @@ public class ReportRepository {
                 .setFirstResult(offset).setMaxResults(size).getResultList();
         long count = bind(em.createQuery(countQuery, Long.class), params).getSingleResult();
         BigDecimal amount = bind(em.createQuery(amountQuery, BigDecimal.class), params).getSingleResult();
-        return new Result(rows, count, amount);
+        Map<String, Long> metrics = kind == ReportKind.REVENUE
+                ? Map.of("successfulPayments", bind(em.createQuery("select count(p.id)" + payments, Long.class), params).getSingleResult())
+                : Map.of("confirmedRegistrations", count);
+        return new Result(rows, count, amount, metrics);
+    }
+
+    private Result content(Long courseId, Instant from, Instant until, int offset, int size) {
+        Map<String,Object> params = new HashMap<>();
+        String filter = "c.deletedAt is null";
+        if (courseId != null) { filter += " and c.id = :courseId"; params.put("courseId", courseId); }
+        filter += dates("c", from, until, params);
+        String questionFilter = "q.active = true and (q.status is null or q.status <> 'RETIRED')";
+        String base = " from Course c where " + filter;
+        String query = "select new " + DTO + "(c.id,c.title,c.status,"
+                + "(select count(l.id) from Lesson l where l.course = c and l.active = true),"
+                + "(select count(q.id) from Question q where q.course = c and " + questionFilter + "))"
+                + base + " order by c.id desc";
+        var rows = bind(em.createQuery(query, ReportRow.class),params).setFirstResult(offset).setMaxResults(size).getResultList();
+        long count = bind(em.createQuery("select count(c.id)" + base,Long.class),params).getSingleResult();
+        Map<String,Long> metrics = new HashMap<>();
+        metrics.put("lessons",bind(em.createQuery("select count(l.id) from Lesson l join l.course c where l.active = true and " + filter,Long.class),params).getSingleResult());
+        metrics.put("questions",bind(em.createQuery("select count(q.id) from Question q join q.course c where " + questionFilter + " and " + filter,Long.class),params).getSingleResult());
+        for (Object[] entry : bind(em.createQuery("select c.status,count(c.id)" + base + " group by c.status",Object[].class),params).getResultList())
+            metrics.put(entry[0].toString(),((Number)entry[1]).longValue());
+        return new Result(rows,count,BigDecimal.ZERO,metrics);
     }
 
     private String dates(String alias, Instant from, Instant until, Map<String, Object> params) {
