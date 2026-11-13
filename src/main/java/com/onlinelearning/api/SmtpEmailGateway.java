@@ -37,7 +37,7 @@ public class SmtpEmailGateway implements EmailGateway {
 
     @Override
     public void sendCourseRegistration(String recipient, String body) {
-        send(recipient, "EduLearn - Đăng ký khóa học thành công", body);
+        send(recipient, "EduLearn - Đã tiếp nhận đăng ký, chờ thanh toán", body);
     }
 
     private void send(String recipient, String subject, String body) {

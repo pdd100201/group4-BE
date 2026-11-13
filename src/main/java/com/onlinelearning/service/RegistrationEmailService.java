@@ -32,15 +32,16 @@ public class RegistrationEmailService {
                 ? registration.getValidityMonthsSnapshot() + " tháng" : registration.getPackageNameSnapshot();
         String url = frontendUrl.replaceAll("/+$", "") + "/student/registrations/" + registration.getId();
         String body = "Chào " + registration.getStudentNameSnapshot() + ",\n\n"
-            + "Bạn đã đăng ký khóa học thành công trên EduLearn.\n\n"
+            + "EduLearn đã tiếp nhận yêu cầu đăng ký khóa học của bạn. Vui lòng hoàn tất thanh toán để kích hoạt quyền học.\n\n"
             + "Mã đăng ký: #" + registration.getId() + "\n"
             + "Khóa học: " + registration.getCourse().getTitle() + "\n"
             + "Gói học: " + registration.getPackageNameSnapshot() + "\n"
             + "Thời hạn học: " + duration + "\n"
             + "Số tiền cần thanh toán: " + amount + "\n"
-            + "Trạng thái: Chờ thanh toán.\n\n"
+            + "Trạng thái tại thời điểm tạo đăng ký: Chờ thanh toán.\n\n"
             + "Quyền học chỉ được kích hoạt sau khi hệ thống xác nhận thanh toán thành công. "
             + "Thời hạn học được tính từ thời điểm kích hoạt.\n"
+            + "Nếu bạn đã thanh toán sau khi nhận email này, hãy mở trang đăng ký bên dưới để xem trạng thái mới nhất. Nội dung email lưu trạng thái tại thời điểm gửi.\n"
             + "Số tiền trên là số tiền tại thời điểm đăng ký. Vui lòng kiểm tra số tiền mới nhất trên trang thanh toán trước khi chuyển khoản.\n\n"
             + "Xem đăng ký và tiếp tục thanh toán: " + url + "\n\n"
             + "Cảm ơn bạn đã học cùng EduLearn!";
